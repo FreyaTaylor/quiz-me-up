@@ -1,0 +1,40 @@
+CREATE TABLE IF NOT EXISTS lc_knowledge (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    parent_id BIGINT DEFAULT 0,
+    name VARCHAR(128) NOT NULL,
+    description VARCHAR(512),
+    level INT DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS lc_user_mastery (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    knowledge_id BIGINT NOT NULL,
+    mastery_score INT DEFAULT 50,
+    last_answer_time TIMESTAMP NULL,
+    UNIQUE KEY uk_user_knowledge (user_id, knowledge_id)
+);
+
+CREATE TABLE IF NOT EXISTS lc_question_record (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    knowledge_id BIGINT NOT NULL,
+    topic VARCHAR(64) NOT NULL,
+    question TEXT NOT NULL,
+    answer TEXT,
+    score INT,
+    analysis TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS lc_prompt_template (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    content TEXT NOT NULL,
+    description VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
