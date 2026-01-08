@@ -41,6 +41,51 @@ public class InterviewService {
     private final RedisTemplate<String, Object> redisTemplate;
 
     /**
+     * 获取用户相关的 Topic 列表（基于 lc_user_mastery 表）。
+     * 从 lc_user_mastery 获取用户的知识点，然后关联 lc_question_record 获取对应的 topic。
+     */
+    public List<String> getUserTopics(Long userId) {
+        // 1. 从 lc_user_mastery 获取该用户的所有 knowledge_id
+        List<UserMastery> masteryList = userMasteryMapper.selectList(
+                Wrappers.<UserMastery>lambdaQuery()
+                        .eq(UserMastery::getUserId, userId)
+                        .select(UserMastery::getKnowledgeId)
+        );
+        
+        if (masteryList.isEmpty()) {
+            // 如果用户没有掌握度记录，返回默认推荐主题
+            return List.of("MySQL", "Java多线程", "Spring Boot", "Redis", "Java集合", "JVM原理", "设计模式");
+        }
+        
+        // 2. 提取所有的 knowledge_id
+        List<Long> knowledgeIds = masteryList.stream()
+                .map(UserMastery::getKnowledgeId)
+                .distinct()
+                .collect(Collectors.toList());
+        
+        // 3. 从 lc_question_record 中查找这些知识点对应的 topic（去重）
+        List<QuestionRecord> records = questionRecordMapper.selectList(
+                Wrappers.<QuestionRecord>lambdaQuery()
+                        .in(QuestionRecord::getKnowledgeId, knowledgeIds)
+                        .select(QuestionRecord::getTopic)
+        );
+        
+        List<String> topics = records.stream()
+                .map(QuestionRecord::getTopic)
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
+        
+        // 如果通过知识点找不到 topic，返回默认推荐主题
+        if (topics.isEmpty()) {
+            return List.of("MySQL", "Java多线程", "Spring Boot", "Redis", "Java集合", "JVM原理", "设计模式");
+        }
+        
+        return topics;
+    }
+
+    /**
      * 生成个性化面试题。
      */
     public List<QuestionRecord> generateQuestions(QuestionGenRequest req) {

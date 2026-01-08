@@ -38,4 +38,12 @@ public class InterviewController {
     public List<Map<String, Object>> tree(@RequestParam Long userId) {
         return interviewService.knowledgeTree(userId);
     }
+
+    /**
+     * 获取指定用户的可用主题列表
+     */
+    @GetMapping("/topics")
+    public List<String> getTopics(@RequestParam Long userId) {
+        return interviewService.getUserTopics(userId);
+    }
 }
