@@ -13,14 +13,13 @@ import org.springframework.context.annotation.Configuration;
 public class LlmConfig {
 
     @Bean
-    public ChatLanguageModel chatLanguageModel(
-            @Value("${langchain4j.openai.api-key:dummy}") String apiKey,
-            @Value("${langchain4j.openai.base-url:https://api.openai.com/v1}") String baseUrl,
-            @Value("${langchain4j.openai.model-name:gpt-4o-mini}") String modelName) {
+    public ChatLanguageModel chatModel() {
         return OpenAiChatModel.builder()
-                .apiKey(apiKey)
-                .baseUrl(baseUrl)
-                .modelName(modelName)
+                .baseUrl("https://api.deepseek.com/v1") // 👈 关键：改 base URL
+                .apiKey("sk-5d0a2b34e8344844b5b4c9f73edf626d")     // 👈 替换为你的 Key
+                .modelName("deepseek-chat")             // 👈 模型名固定为此
+                .maxTokens(1024)
+                .temperature(0.7)
                 .build();
     }
 }
