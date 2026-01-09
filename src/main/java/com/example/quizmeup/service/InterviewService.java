@@ -139,12 +139,31 @@ public class InterviewService {
         if (record == null || !record.getUserId().equals(req.getUserId())) {
             throw new IllegalArgumentException("Question not found or unauthorized");
         }
-        String prompt = promptService.render("ANSWER_REVIEW", Map.of(
-                "question", record.getQuestion(),
-                "answer", req.getAnswer()
-        ));
+        
+        // 构建包含问题和答案的 JSON 字符串
+        Map<String, Object> promptVars = new HashMap<>();
+        promptVars.put("question", record.getQuestion());
+        promptVars.put("answer", req.getAnswer());
+        
+        String prompt = promptService.render("ANSWER_REVIEW", promptVars);
         String raw = llmClient.call(prompt);
+        
+        // 解析 LLM 返回的 JSON
         AnswerResult result = JSON.parseObject(raw, AnswerResult.class);
+        
+        // 确保字段不为空，设置默认值
+        if (result.getFeedbackItems() == null) {
+            result.setFeedbackItems(new ArrayList<>());
+        }
+        if (result.getRecommendedAnswer() == null || result.getRecommendedAnswer().isEmpty()) {
+            result.setRecommendedAnswer("暂无推荐回答");
+        }
+        if (result.getAnalysis() == null || result.getAnalysis().isEmpty()) {
+            result.setAnalysis("暂无详细分析");
+        }
+        if (result.getScore() == null) {
+            result.setScore(0);
+        }
 
         record.setAnswer(req.getAnswer());
         record.setScore(result.getScore());

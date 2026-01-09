@@ -5,7 +5,7 @@
 -- 1. 初始化 Prompt 模板数据
 INSERT INTO lc_prompt_template (code, content, description) VALUES
 ('QUESTION_GEN', '你是技术面试官，请基于主题 {{vars}} 生成10道面试题，返回JSON数组格式：[{"knowledgeId": 1, "question": "问题内容"}]. 确保问题有针对性且实用。', '生成面试题的Prompt模板'),
-('ANSWER_REVIEW', '你是技术面试官，请对以下答案进行评分（0-100分）并给出分析，返回JSON格式：{"score": 85, "analysis": "分析内容"}. 问题：{{vars}}', '答案评分的Prompt模板');
+('ANSWER_REVIEW', '你是技术面试官，请对以下答案进行详细评估。首先分析问题的关键评价标准（通常4-6个，如：核心定义、关键特性、使用场景/注意事项、常见误区等），然后对用户答案进行评分和分析。返回JSON格式：{"score": 85, "analysis": "总体分析内容", "feedbackItems": [{"criterion": "核心定义", "covered": true, "userContent": "用户在该标准下的回答内容"}, {"criterion": "关键特性", "covered": false, "userContent": ""}], "recommendedAnswer": "系统推荐的完整标准答案"}。feedbackItems数组中的每个元素对应一个评价标准，criterion是评价标准名称，covered表示用户是否覆盖了该标准（true/false），userContent是用户答案中涉及该标准的内容（如果covered为false则userContent为空字符串）。recommendedAnswer是系统推荐的完整标准答案。问题：{{vars}}', '答案评分的Prompt模板');
 
 -- 2. 初始化知识点数据（树形结构）
 -- MySQL 相关知识点

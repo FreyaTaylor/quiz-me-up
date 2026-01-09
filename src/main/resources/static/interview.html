@@ -215,38 +215,111 @@
         }
 
         // 显示评分结果
-        function displayResult(questionId, result) {
-            const resultDiv = document.getElementById(`result-${questionId}`);
-            const score = result.score || 0;
-            const analysis = result.analysis || '暂无分析';
-            
-            // 根据分数设置颜色
-            let scoreColor = 'bg-red-500';
-            if (score >= 80) scoreColor = 'bg-green-500';
-            else if (score >= 60) scoreColor = 'bg-yellow-500';
+        // 显示评分结果
+function displayResult(questionId, result) {
+    const resultDiv = document.getElementById(`result-${questionId}`);
 
-            resultDiv.innerHTML = `
-                <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <div class="flex items-center space-x-4 mb-3">
-                        <div class="flex items-center space-x-2">
-                            <span class="text-sm font-medium text-gray-700">得分：</span>
-                            <div class="flex items-center space-x-2">
-                                <div class="w-16 h-16 rounded-full ${scoreColor} flex items-center justify-center text-white font-bold text-xl">
-                                    ${score}
-                                </div>
-                                <span class="text-gray-600">/ 100</span>
-                            </div>
+    // 安全获取字段，提供默认值
+    const score = typeof result.score === 'number' ? result.score : 0;
+    const analysis = result.analysis || '暂无分析';
+    const feedbackItems = Array.isArray(result.feedbackItems) ? result.feedbackItems : [];
+    const recommendedAnswer = result.recommendedAnswer || '系统暂未生成推荐回答';
+
+    // 根据分数设置颜色
+    let scoreColor = 'bg-red-500';
+    if (score >= 80) scoreColor = 'bg-green-500';
+    else if (score >= 60) scoreColor = 'bg-yellow-500';
+
+    // 生成反馈表格HTML
+    let tableHTML = '';
+    if (feedbackItems.length > 0) {
+        tableHTML = `
+            <div class="mt-4">
+                <div class="text-sm font-medium text-gray-700 mb-3">📊 评价标准反馈表格：</div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white border border-gray-200 rounded-lg">
+                        <thead>
+                            <tr class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">评价标准</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">是否覆盖</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">用户回答</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            ${feedbackItems.map((item, index) => {
+                                const covered = item.covered === true;
+                                const userContent = item.userContent || '';
+
+                                return `
+                                    <tr class="hover:bg-gray-50 transition-colors">
+                                        <td class="px-4 py-3 text-sm font-medium text-gray-900">
+                                            ${index + 1}. ${escapeHtml(item.criterion || '未知标准')}
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-center">
+                                            ${covered ? `
+                                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                                    <span class="mr-1">✓</span> 已覆盖
+                                                </span>
+                                            ` : `
+                                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                                                    <span class="mr-1">✗</span> 未覆盖
+                                                </span>
+                                            `}
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-gray-700">
+                                            ${userContent ? escapeHtml(userContent) : '<span class="text-gray-400 italic">未涉及</span>'}
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
+    // 渲染完整结果
+    resultDiv.innerHTML = `
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 space-y-4">
+            <!-- 得分区域 -->
+            <div class="flex items-center space-x-4 pb-4 border-b border-gray-200">
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm font-medium text-gray-700">总分：</span>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-16 h-16 rounded-full ${scoreColor} flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                            ${score}
                         </div>
-                    </div>
-                    <div class="mt-3">
-                        <div class="text-sm font-medium text-gray-700 mb-2">AI分析：</div>
-                        <div class="bg-white rounded p-3 text-gray-800 text-sm leading-relaxed">
-                            ${escapeHtml(analysis)}
-                        </div>
+                        <span class="text-gray-600 font-medium">/ 100</span>
                     </div>
                 </div>
-            `;
-        }
+            </div>
+
+            <!-- 总体分析 -->
+            <div>
+                <div class="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <span class="mr-2">💡</span> 总体分析：
+                </div>
+                <div class="bg-white rounded-lg p-4 text-gray-800 text-sm leading-relaxed border border-gray-200 whitespace-pre-wrap">
+                    ${escapeHtml(analysis)}
+                </div>
+            </div>
+
+            <!-- 反馈表格 -->
+            ${tableHTML}
+
+            <!-- 推荐回答 -->
+            <div>
+                <div class="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <span class="mr-2">✨</span> 系统推荐回答：
+                </div>
+                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 text-gray-800 text-sm leading-relaxed border border-blue-200 whitespace-pre-wrap">
+                    ${escapeHtml(recommendedAnswer)}
+                </div>
+            </div>
+        </div>
+    `;
+}
 
         // HTML转义函数
         function escapeHtml(text) {
