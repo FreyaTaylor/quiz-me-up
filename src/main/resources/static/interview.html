@@ -13,17 +13,69 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
+        .login-modal {
+            display: none;
+        }
+        .login-modal.show {
+            display: flex;
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
+    <!-- 登录模态框 -->
+    <div id="loginModal" class="login-modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl p-8 max-w-md w-full mx-4">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800">用户登录</h2>
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">用户名：</label>
+                    <input 
+                        type="text" 
+                        id="loginUsername" 
+                        required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="请输入用户名"
+                    />
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">密码：</label>
+                    <input 
+                        type="password" 
+                        id="loginPassword" 
+                        required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="请输入密码"
+                    />
+                </div>
+                <div class="flex space-x-4">
+                    <button 
+                        type="submit"
+                        class="flex-1 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        登录
+                    </button>
+                    <button 
+                        type="button"
+                        onclick="closeLoginModal()"
+                        class="flex-1 px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                        取消
+                    </button>
+                </div>
+                <div id="loginError" class="mt-4 text-red-600 text-sm hidden"></div>
+            </form>
+        </div>
+    </div>
+
     <!-- 导航栏 -->
     <nav class="bg-blue-600 text-white shadow-lg">
         <div class="container mx-auto px-4 py-3">
             <div class="flex justify-between items-center">
                 <h1 class="text-xl font-bold">AI面试模拟平台</h1>
-                <div class="space-x-4">
+                <div class="flex items-center space-x-4">
+                    <span id="userInfo" class="text-sm hidden">
+                        <span id="usernameDisplay"></span>
+                        <button onclick="logout()" class="ml-2 px-3 py-1 bg-red-500 rounded hover:bg-red-600 text-xs">退出</button>
+                    </span>
                     <a href="/interview.html" class="px-4 py-2 bg-blue-700 rounded hover:bg-blue-800">答题</a>
-                    <a href="/progress.html" class="px-4 py-2 bg-blue-500 rounded hover:bg-blue-600">进度</a>
                 </div>
             </div>
         </div>
@@ -32,15 +84,15 @@
     <div class="container mx-auto px-4 py-8 max-w-4xl">
         <!-- 主题选择区域 -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 class="text-2xl font-bold mb-4 text-gray-800">选择面试主题</h2>
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">选择知识点</h2>
             <div class="flex items-center space-x-4">
                 <label class="text-gray-700 font-medium">主题：</label>
-                <select id="topicSelect" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <option value="">请选择主题...</option>
+                <select id="topicSelect" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" disabled>
+                    <option value="">请先登录...</option>
                 </select>
                 <button id="generateBtn" onclick="generateQuestions()" 
-                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
-                    生成题目
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                    加载题目
                 </button>
             </div>
         </div>
@@ -48,7 +100,7 @@
         <!-- 题目列表区域 -->
         <div id="questionsContainer" class="space-y-4">
             <div class="bg-white rounded-lg shadow-md p-6 text-center text-gray-500">
-                请先选择主题并点击"生成题目"按钮
+                请先登录后选择主题并点击"生成题目"按钮
             </div>
         </div>
     </div>
@@ -56,75 +108,200 @@
     <script>
         const API_BASE = '';
         const TOKEN = 'local-dev-token';
-        const USER_ID = 1; // 默认用户ID
 
-        // 页面加载时获取主题列表
-        window.addEventListener('DOMContentLoaded', async () => {
-            await loadTopics();
-        });
+        // 从 sessionStorage 获取用户信息
+        function getUserId() {
+            return sessionStorage.getItem('userId');
+        }
 
-        // 加载主题列表
-        async function loadTopics() {
-            try {
-                const response = await fetch(`${API_BASE}/api/interview/topics?userId=${USER_ID}`, {
-                    headers: {
-                        'X-Token': TOKEN
-                    }
-                });
-                if (!response.ok) throw new Error('获取主题列表失败');
-                
-                const topics = await response.json();
-                const select = document.getElementById('topicSelect');
-                topics.forEach(topic => {
-                    const option = document.createElement('option');
-                    option.value = topic;
-                    option.textContent = topic;
-                    select.appendChild(option);
-                });
-            } catch (error) {
-                console.error('加载主题失败:', error);
-                alert('加载主题列表失败，请刷新页面重试');
+        function getUsername() {
+            return sessionStorage.getItem('username');
+        }
+
+        function setUserInfo(userId, username) {
+            sessionStorage.setItem('userId', userId);
+            sessionStorage.setItem('username', username);
+        }
+
+        function clearUserInfo() {
+            sessionStorage.removeItem('userId');
+            sessionStorage.removeItem('username');
+        }
+
+        // 检查登录状态
+        function checkLogin() {
+            const userId = getUserId();
+            const username = getUsername();
+            
+            if (userId && username) {
+                // 已登录
+                document.getElementById('userInfo').classList.remove('hidden');
+                document.getElementById('usernameDisplay').textContent = `欢迎，${username}`;
+                document.getElementById('topicSelect').disabled = false;
+                document.getElementById('generateBtn').disabled = false;
+                loadTopics();
+                return true;
+            } else {
+                // 未登录
+                document.getElementById('userInfo').classList.add('hidden');
+                document.getElementById('topicSelect').disabled = true;
+                document.getElementById('generateBtn').disabled = true;
+                showLoginModal();
+                return false;
             }
         }
 
-        // 生成题目
-        async function generateQuestions() {
-            const topic = document.getElementById('topicSelect').value;
-            if (!topic) {
-                alert('请先选择主题');
+        // 显示登录模态框
+        function showLoginModal() {
+            document.getElementById('loginModal').classList.add('show');
+        }
+
+        // 关闭登录模态框
+        function closeLoginModal() {
+            document.getElementById('loginModal').classList.remove('show');
+            document.getElementById('loginError').classList.add('hidden');
+            document.getElementById('loginForm').reset();
+        }
+
+        // 处理登录
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const errorDiv = document.getElementById('loginError');
+
+            if (!username || !password) {
+                errorDiv.textContent = '请输入用户名和密码';
+                errorDiv.classList.remove('hidden');
                 return;
             }
 
-            const generateBtn = document.getElementById('generateBtn');
-            generateBtn.disabled = true;
-            generateBtn.textContent = '生成中...';
-
             try {
-                const response = await fetch(`${API_BASE}/api/interview/questions`, {
+                const response = await fetch(`${API_BASE}/api/login`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-Token': TOKEN
                     },
-                    body: JSON.stringify({
-                        userId: USER_ID,
-                        topic: topic
-                    })
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('用户名或密码错误');
+                    }
+                    throw new Error('登录失败，请稍后重试');
+                }
+
+                const result = await response.json();
+                setUserInfo(result.userId.toString(), result.username);
+                closeLoginModal();
+                checkLogin();
+            } catch (error) {
+                console.error('登录失败:', error);
+                errorDiv.textContent = error.message;
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        // 退出登录
+        function logout() {
+            clearUserInfo();
+            checkLogin();
+            // 清空页面内容
+            document.getElementById('questionsContainer').innerHTML = 
+                '<div class="bg-white rounded-lg shadow-md p-6 text-center text-gray-500">请先登录后选择主题并点击"生成题目"按钮</div>';
+            document.getElementById('topicSelect').innerHTML = '<option value="">请先登录...</option>';
+        }
+
+        // 页面加载时检查登录状态
+        window.addEventListener('DOMContentLoaded', () => {
+            checkLogin();
+            // 检查是否有选中的知识点（从学习计划跳转过来）
+            const selectedKnowledgeId = sessionStorage.getItem('selectedKnowledgeId');
+            if (selectedKnowledgeId) {
+                sessionStorage.removeItem('selectedKnowledgeId');
+                // 等待知识点列表加载完成后自动选择
+                setTimeout(() => {
+                    const select = document.getElementById('topicSelect');
+                    if (select) {
+                        select.value = selectedKnowledgeId;
+                        generateQuestions();
+                    }
+                }, 1000);
+            }
+        });
+
+        // 加载知识点列表（作为topic选择）
+        async function loadTopics() {
+            const userId = getUserId();
+            if (!userId) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/interview/topics?userId=${userId}`, {
+                    headers: {
+                        'X-Token': TOKEN
+                    }
+                });
+                if (!response.ok) throw new Error('获取知识点列表失败');
+                
+                const topics = await response.json();
+                const select = document.getElementById('topicSelect');
+                select.innerHTML = '<option value="">请选择知识点...</option>';
+                topics.forEach(topic => {
+                    const option = document.createElement('option');
+                    option.value = topic.id;
+                    option.textContent = `${topic.name} (已练 ${topic.practicedCount || 0}/${topic.totalQuestions || 0} 题)`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('加载知识点失败:', error);
+                alert('加载知识点列表失败，请刷新页面重试');
+            }
+        }
+
+        // 加载题目（按知识点）
+        async function generateQuestions() {
+            const userId = getUserId();
+            if (!userId) {
+                alert('请先登录');
+                checkLogin();
+                return;
+            }
+
+            const knowledgeId = document.getElementById('topicSelect').value;
+            if (!knowledgeId) {
+                alert('请先选择知识点');
+                return;
+            }
+
+            const generateBtn = document.getElementById('generateBtn');
+            generateBtn.disabled = true;
+            generateBtn.textContent = '加载中...';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/interview/questions?userId=${userId}&knowledgeId=${knowledgeId}`, {
+                    headers: {
+                        'X-Token': TOKEN
+                    }
                 });
 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    throw new Error(errorText || '生成题目失败');
+                    throw new Error(errorText || '加载题目失败');
                 }
 
                 const questions = await response.json();
                 displayQuestions(questions);
             } catch (error) {
-                console.error('生成题目失败:', error);
-                alert('生成题目失败: ' + error.message);
+                console.error('加载题目失败:', error);
+                alert('加载题目失败: ' + error.message);
             } finally {
                 generateBtn.disabled = false;
-                generateBtn.textContent = '生成题目';
+                generateBtn.textContent = '加载题目';
             }
         }
 
@@ -149,7 +326,7 @@
                                     ID: ${q.id}
                                 </span>
                             </div>
-                            <h3 class="text-lg font-semibold text-gray-800 mb-2">${escapeHtml(q.question)}</h3>
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">${escapeHtml(q.questionText)}</h3>
                         </div>
                     </div>
                     
@@ -163,7 +340,7 @@
                     </div>
                     
                     <button 
-                        onclick="submitAnswer(${q.id})" 
+                        onclick="submitAnswer('${q.id}')" 
                         class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
                         提交答案
                     </button>
@@ -175,6 +352,13 @@
 
         // 提交答案
         async function submitAnswer(questionId) {
+            const userId = getUserId();
+            if (!userId) {
+                alert('请先登录');
+                checkLogin();
+                return;
+            }
+
             const answerTextarea = document.getElementById(`answer-${questionId}`);
             const answer = answerTextarea.value.trim();
             
@@ -195,7 +379,7 @@
                         'X-Token': TOKEN
                     },
                     body: JSON.stringify({
-                        userId: USER_ID,
+                        userId: parseInt(userId),
                         questionId: questionId,
                         answer: answer
                     })
@@ -208,6 +392,8 @@
 
                 const result = await response.json();
                 displayResult(questionId, result);
+                // 刷新知识点列表（更新已答题数）
+                await loadTopics();
             } catch (error) {
                 console.error('提交答案失败:', error);
                 resultDiv.innerHTML = `<div class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">提交失败: ${error.message}</div>`;
@@ -215,111 +401,110 @@
         }
 
         // 显示评分结果
-        // 显示评分结果
-function displayResult(questionId, result) {
-    const resultDiv = document.getElementById(`result-${questionId}`);
+        function displayResult(questionId, result) {
+            const resultDiv = document.getElementById(`result-${questionId}`);
 
-    // 安全获取字段，提供默认值
-    const score = typeof result.score === 'number' ? result.score : 0;
-    const analysis = result.analysis || '暂无分析';
-    const feedbackItems = Array.isArray(result.feedbackItems) ? result.feedbackItems : [];
-    const recommendedAnswer = result.recommendedAnswer || '系统暂未生成推荐回答';
+            // 安全获取字段，提供默认值
+            const score = typeof result.score === 'number' ? result.score : 0;
+            const analysis = result.analysis || '暂无分析';
+            const feedbackItems = Array.isArray(result.feedbackItems) ? result.feedbackItems : [];
+            const recommendedAnswer = result.recommendedAnswer || '系统暂未生成推荐回答';
 
-    // 根据分数设置颜色
-    let scoreColor = 'bg-red-500';
-    if (score >= 80) scoreColor = 'bg-green-500';
-    else if (score >= 60) scoreColor = 'bg-yellow-500';
+            // 根据分数设置颜色
+            let scoreColor = 'bg-red-500';
+            if (score >= 80) scoreColor = 'bg-green-500';
+            else if (score >= 60) scoreColor = 'bg-yellow-500';
 
-    // 生成反馈表格HTML
-    let tableHTML = '';
-    if (feedbackItems.length > 0) {
-        tableHTML = `
-            <div class="mt-4">
-                <div class="text-sm font-medium text-gray-700 mb-3">📊 评价标准反馈表格：</div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full bg-white border border-gray-200 rounded-lg">
-                        <thead>
-                            <tr class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">评价标准</th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">是否覆盖</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">用户回答</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200">
-                            ${feedbackItems.map((item, index) => {
-                                const covered = item.covered === true;
-                                const userContent = item.userContent || '';
-
-                                return `
-                                    <tr class="hover:bg-gray-50 transition-colors">
-                                        <td class="px-4 py-3 text-sm font-medium text-gray-900">
-                                            ${index + 1}. ${escapeHtml(item.criterion || '未知标准')}
-                                        </td>
-                                        <td class="px-4 py-3 text-sm text-center">
-                                            ${covered ? `
-                                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                                    <span class="mr-1">✓</span> 已覆盖
-                                                </span>
-                                            ` : `
-                                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
-                                                    <span class="mr-1">✗</span> 未覆盖
-                                                </span>
-                                            `}
-                                        </td>
-                                        <td class="px-4 py-3 text-sm text-gray-700">
-                                            ${userContent ? escapeHtml(userContent) : '<span class="text-gray-400 italic">未涉及</span>'}
-                                        </td>
+            // 生成反馈表格HTML
+            let tableHTML = '';
+            if (feedbackItems.length > 0) {
+                tableHTML = `
+                    <div class="mt-4">
+                        <div class="text-sm font-medium text-gray-700 mb-3">📊 评价标准反馈表格：</div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full bg-white border border-gray-200 rounded-lg">
+                                <thead>
+                                    <tr class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
+                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">评价标准</th>
+                                        <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">是否覆盖</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">用户回答</th>
                                     </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-    }
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    ${feedbackItems.map((item, index) => {
+                                        const covered = item.covered === true;
+                                        const userContent = item.userContent || '';
 
-    // 渲染完整结果
-    resultDiv.innerHTML = `
-        <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 space-y-4">
-            <!-- 得分区域 -->
-            <div class="flex items-center space-x-4 pb-4 border-b border-gray-200">
-                <div class="flex items-center space-x-2">
-                    <span class="text-sm font-medium text-gray-700">总分：</span>
-                    <div class="flex items-center space-x-2">
-                        <div class="w-16 h-16 rounded-full ${scoreColor} flex items-center justify-center text-white font-bold text-xl shadow-lg">
-                            ${score}
+                                        return `
+                                            <tr class="hover:bg-gray-50 transition-colors">
+                                                <td class="px-4 py-3 text-sm font-medium text-gray-900">
+                                                    ${index + 1}. ${escapeHtml(item.criterion || '未知标准')}
+                                                </td>
+                                                <td class="px-4 py-3 text-sm text-center">
+                                                    ${covered ? `
+                                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                                            <span class="mr-1">✓</span> 已覆盖
+                                                        </span>
+                                                    ` : `
+                                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                                                            <span class="mr-1">✗</span> 未覆盖
+                                                        </span>
+                                                    `}
+                                                </td>
+                                                <td class="px-4 py-3 text-sm text-gray-700">
+                                                    ${userContent ? escapeHtml(userContent) : '<span class="text-gray-400 italic">未涉及</span>'}
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
                         </div>
-                        <span class="text-gray-600 font-medium">/ 100</span>
+                    </div>
+                `;
+            }
+
+            // 渲染完整结果
+            resultDiv.innerHTML = `
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 space-y-4">
+                    <!-- 得分区域 -->
+                    <div class="flex items-center space-x-4 pb-4 border-b border-gray-200">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm font-medium text-gray-700">总分：</span>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-16 h-16 rounded-full ${scoreColor} flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                                    ${score}
+                                </div>
+                                <span class="text-gray-600 font-medium">/ 100</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 总体分析 -->
+                    <div>
+                        <div class="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                            <span class="mr-2">💡</span> 总体分析：
+                        </div>
+                        <div class="bg-white rounded-lg p-4 text-gray-800 text-sm leading-relaxed border border-gray-200 whitespace-pre-wrap">
+                            ${escapeHtml(analysis)}
+                        </div>
+                    </div>
+
+                    <!-- 反馈表格 -->
+                    ${tableHTML}
+
+                    <!-- 推荐回答 -->
+                    <div>
+                        <div class="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                            <span class="mr-2">✨</span> 系统推荐回答：
+                        </div>
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 text-gray-800 text-sm leading-relaxed border border-blue-200 whitespace-pre-wrap">
+                            ${escapeHtml(recommendedAnswer)}
+                        </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- 总体分析 -->
-            <div>
-                <div class="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                    <span class="mr-2">💡</span> 总体分析：
-                </div>
-                <div class="bg-white rounded-lg p-4 text-gray-800 text-sm leading-relaxed border border-gray-200 whitespace-pre-wrap">
-                    ${escapeHtml(analysis)}
-                </div>
-            </div>
-
-            <!-- 反馈表格 -->
-            ${tableHTML}
-
-            <!-- 推荐回答 -->
-            <div>
-                <div class="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                    <span class="mr-2">✨</span> 系统推荐回答：
-                </div>
-                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 text-gray-800 text-sm leading-relaxed border border-blue-200 whitespace-pre-wrap">
-                    ${escapeHtml(recommendedAnswer)}
-                </div>
-            </div>
-        </div>
-    `;
-}
+            `;
+        }
 
         // HTML转义函数
         function escapeHtml(text) {

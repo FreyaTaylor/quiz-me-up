@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI面试模拟 - 思维导图</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        #mindmapCanvas {
+            border: 1px solid #e5e7eb;
+            cursor: move;
+        }
+        .node {
+            cursor: pointer;
+            user-select: none;
+        }
+        .node.selected {
+            stroke: #3b82f6;
+            stroke-width: 3;
+        }
+        .node-text {
+            font-size: 14px;
+            font-weight: 500;
+            fill: #1f2937;
+        }
+        .node-description {
+            font-size: 12px;
+            fill: #6b7280;
+        }
+        .node-proficiency {
+            font-size: 11px;
+            fill: #10b981;
+            font-weight: 600;
+        }
+        .toolbar {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 导航栏 -->
+    <nav class="bg-blue-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <h1 class="text-xl font-bold">AI面试模拟平台 - 思维导图</h1>
+                <div class="flex items-center space-x-4">
+                    <span id="userInfo" class="text-sm hidden">
+                        <span id="usernameDisplay"></span>
+                        <button onclick="logout()" class="ml-2 px-3 py-1 bg-red-500 rounded hover:bg-red-600 text-xs">退出</button>
+                    </span>
+                    <a href="/interview.html" class="px-4 py-2 bg-blue-500 rounded hover:bg-blue-600">答题</a>
+                    <a href="/mindmap.html" class="px-4 py-2 bg-blue-700 rounded hover:bg-blue-800">思维导图</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 登录模态框 -->
+    <div id="loginModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-96">
+            <h2 class="text-2xl font-bold mb-4">登录</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+                    <input type="text" id="loginUsername" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="请输入用户名">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">密码</label>
+                    <input type="password" id="loginPassword" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="请输入密码">
+                </div>
+                <button onclick="handleLogin()" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">登录</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 创建根节点模态框 -->
+    <div id="createRootModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-96">
+            <h2 class="text-2xl font-bold mb-4">创建根节点</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">节点名称 *</label>
+                    <input type="text" id="createName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="请输入节点名称">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">中文描述</label>
+                    <textarea id="createDescription" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="请输入节点描述"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">重要程度 (1-5)</label>
+                    <input type="number" id="createImportance" min="1" max="5" value="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="saveRootNode()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">创建</button>
+                    <button onclick="closeCreateRootModal()" class="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑节点模态框 -->
+    <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-96">
+            <h2 class="text-2xl font-bold mb-4">编辑节点</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">节点名称</label>
+                    <input type="text" id="editName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">中文描述</label>
+                    <textarea id="editDescription" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">重要程度 (1-5)</label>
+                    <input type="number" id="editImportance" min="1" max="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="saveNodeEdit()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">保存</button>
+                    <button onclick="closeEditModal()" class="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- 工具栏 -->
+        <div class="toolbar bg-white rounded-lg shadow-md p-4 space-y-2">
+            <button onclick="loadMindmap()" class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">刷新</button>
+            <button onclick="showCreateRootModal()" class="w-full px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">创建根节点</button>
+            <button onclick="editSelectedNode()" id="editBtn" class="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700" disabled>编辑节点</button>
+            <button onclick="expandSubtree()" id="expandBtn" class="w-full px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700" disabled>AI扩充</button>
+            <button onclick="resetView()" class="w-full px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">重置视图</button>
+        </div>
+
+        <!-- 思维导图容器 -->
+        <div class="bg-white rounded-lg shadow-md p-4 relative">
+            <canvas id="mindmapCanvas" width="1200" height="800"></canvas>
+            <!-- 空状态提示 -->
+            <div id="emptyState" class="absolute inset-0 flex items-center justify-center bg-gray-50 hidden">
+                <div class="text-center">
+                    <p class="text-gray-500 text-lg mb-4">还没有知识树，请先创建根节点</p>
+                    <button onclick="showCreateRootModal()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">创建根节点</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+        const TOKEN = 'local-dev-token';
+        let treeData = [];
+        let selectedNodeId = null;
+        let offsetX = 0;
+        let offsetY = 0;
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let nodePositions = new Map();
+        let zoomLevel = 1;
+
+        // 用户信息管理
+        function getUserId() {
+            return sessionStorage.getItem('userId');
+        }
+
+        function getUsername() {
+            return sessionStorage.getItem('username');
+        }
+
+        function setUserInfo(userId, username) {
+            sessionStorage.setItem('userId', userId);
+            sessionStorage.setItem('username', username);
+        }
+
+        function clearUserInfo() {
+            sessionStorage.removeItem('userId');
+            sessionStorage.removeItem('username');
+        }
+
+        function checkLogin() {
+            const userId = getUserId();
+            const username = getUsername();
+            
+            if (userId && username) {
+                document.getElementById('userInfo').classList.remove('hidden');
+                document.getElementById('usernameDisplay').textContent = `欢迎，${username}`;
+                loadMindmap();
+                return true;
+            } else {
+                document.getElementById('userInfo').classList.add('hidden');
+                showLoginModal();
+                return false;
+            }
+        }
+
+        function showLoginModal() {
+            document.getElementById('loginModal').classList.remove('hidden');
+            document.getElementById('loginModal').classList.add('flex');
+        }
+
+        function hideLoginModal() {
+            document.getElementById('loginModal').classList.add('hidden');
+            document.getElementById('loginModal').classList.remove('flex');
+        }
+
+        async function handleLogin() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!username || !password) {
+                alert('请输入用户名和密码');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    setUserInfo(data.userId, data.username);
+                    hideLoginModal();
+                    checkLogin();
+                } else {
+                    alert('登录失败，请检查用户名和密码');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('登录失败，请稍后重试');
+            }
+        }
+
+        function logout() {
+            clearUserInfo();
+            checkLogin();
+        }
+
+        // 加载思维导图数据
+        async function loadMindmap() {
+            const userId = getUserId();
+            if (!userId) {
+                alert('请先登录');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/knowledge/tree?userId=${userId}`, {
+                    headers: {
+                        'X-Token': TOKEN
+                    }
+                });
+                
+                if (response.ok) {
+                    treeData = await response.json();
+                    renderMindmap();
+                } else {
+                    alert('加载知识树失败');
+                }
+            } catch (error) {
+                console.error('Load mindmap error:', error);
+                alert('加载失败，请稍后重试');
+            }
+        }
+
+        // 渲染思维导图
+        function renderMindmap() {
+            const canvas = document.getElementById('mindmapCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 检查是否有数据
+            if (!treeData || treeData.length === 0) {
+                document.getElementById('emptyState').classList.remove('hidden');
+                return;
+            }
+            
+            document.getElementById('emptyState').classList.add('hidden');
+            
+            // 计算节点位置
+            calculateNodePositions();
+            
+            // 绘制连接线
+            drawConnections(ctx);
+            
+            // 绘制节点
+            drawNodes(ctx);
+        }
+
+        // 计算节点位置（简单的树形布局）
+        function calculateNodePositions() {
+            nodePositions.clear();
+            if (treeData.length === 0) return;
+            
+            const centerX = 600;
+            const centerY = 400;
+            const levelHeight = 150;
+            const nodeWidth = 200;
+            const nodeHeight = 100;
+            
+            function layoutNode(node, x, y, level, index, total) {
+                const nodeX = x;
+                const nodeY = y + level * levelHeight;
+                
+                nodePositions.set(node.id, {
+                    x: nodeX,
+                    y: nodeY,
+                    width: nodeWidth,
+                    height: nodeHeight,
+                    node: node
+                });
+                
+                if (node.children && node.children.length > 0) {
+                    const childCount = node.children.length;
+                    const startX = x - (childCount - 1) * nodeWidth / 2;
+                    
+                    node.children.forEach((child, i) => {
+                        const childX = startX + i * nodeWidth;
+                        layoutNode(child, childX, nodeY, level + 1, i, childCount);
+                    });
+                }
+            }
+            
+            // 从根节点开始布局
+            treeData.forEach((root, i) => {
+                const rootX = centerX + (i - treeData.length / 2) * 300;
+                layoutNode(root, rootX, centerY, 0, i, treeData.length);
+            });
+        }
+
+        // 绘制连接线
+        function drawConnections(ctx) {
+            ctx.strokeStyle = '#9ca3af';
+            ctx.lineWidth = 2;
+            
+            nodePositions.forEach((pos, nodeId) => {
+                const node = pos.node;
+                if (node.children && node.children.length > 0) {
+                    node.children.forEach(child => {
+                        const childPos = nodePositions.get(child.id);
+                        if (childPos) {
+                            ctx.beginPath();
+                            ctx.moveTo(pos.x + pos.width / 2, pos.y + pos.height);
+                            ctx.lineTo(childPos.x + childPos.width / 2, childPos.y);
+                            ctx.stroke();
+                        }
+                    });
+                }
+            });
+        }
+
+        // 绘制节点
+        function drawNodes(ctx) {
+            nodePositions.forEach((pos, nodeId) => {
+                const node = pos.node;
+                const isSelected = selectedNodeId === nodeId;
+                
+                // 绘制节点背景
+                ctx.fillStyle = isSelected ? '#dbeafe' : '#ffffff';
+                ctx.strokeStyle = isSelected ? '#3b82f6' : '#e5e7eb';
+                ctx.lineWidth = isSelected ? 3 : 2;
+                
+                ctx.fillRect(pos.x, pos.y, pos.width, pos.height);
+                ctx.strokeRect(pos.x, pos.y, pos.width, pos.height);
+                
+                // 绘制节点文本
+                ctx.fillStyle = '#1f2937';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(node.name, pos.x + pos.width / 2, pos.y + 25);
+                
+                // 绘制描述
+                if (node.description) {
+                    ctx.fillStyle = '#6b7280';
+                    ctx.font = '12px Arial';
+                    const desc = node.description.length > 20 ? node.description.substring(0, 20) + '...' : node.description;
+                    ctx.fillText(desc, pos.x + pos.width / 2, pos.y + 45);
+                }
+                
+                // 绘制重要程度
+                ctx.fillStyle = '#f59e0b';
+                ctx.font = '11px Arial';
+                ctx.fillText(`重要: ${node.importance || 3}`, pos.x + 10, pos.y + 65);
+                
+                // 绘制掌握度
+                if (node.proficiency !== undefined) {
+                    ctx.fillStyle = '#10b981';
+                    ctx.font = '11px Arial';
+                    ctx.fillText(`掌握: ${node.proficiency}%`, pos.x + pos.width - 60, pos.y + 65);
+                }
+            });
+        }
+
+        // 处理鼠标点击
+        document.getElementById('mindmapCanvas').addEventListener('click', (e) => {
+            const rect = e.target.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / zoomLevel - offsetX;
+            const y = (e.clientY - rect.top) / zoomLevel - offsetY;
+            
+            // 查找点击的节点
+            let clickedNode = null;
+            nodePositions.forEach((pos, nodeId) => {
+                if (x >= pos.x && x <= pos.x + pos.width &&
+                    y >= pos.y && y <= pos.y + pos.height) {
+                    clickedNode = nodeId;
+                }
+            });
+            
+            if (clickedNode) {
+                selectedNodeId = clickedNode;
+                renderMindmap();
+                updateToolbarButtons();
+            } else {
+                selectedNodeId = null;
+                renderMindmap();
+                updateToolbarButtons();
+            }
+        });
+
+        // 更新工具栏按钮状态
+        function updateToolbarButtons() {
+            const hasSelection = selectedNodeId !== null;
+            document.getElementById('editBtn').disabled = !hasSelection;
+            document.getElementById('expandBtn').disabled = !hasSelection;
+        }
+
+        // 编辑节点
+        function editSelectedNode() {
+            if (!selectedNodeId) return;
+            
+            const pos = nodePositions.get(selectedNodeId);
+            if (!pos) return;
+            
+            const node = pos.node;
+            document.getElementById('editName').value = node.name || '';
+            document.getElementById('editDescription').value = node.description || '';
+            document.getElementById('editImportance').value = node.importance || 3;
+            
+            document.getElementById('editModal').classList.remove('hidden');
+            document.getElementById('editModal').classList.add('flex');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+            document.getElementById('editModal').classList.remove('flex');
+        }
+
+        async function saveNodeEdit() {
+            if (!selectedNodeId) return;
+            
+            const name = document.getElementById('editName').value.trim();
+            const description = document.getElementById('editDescription').value.trim();
+            const importance = parseInt(document.getElementById('editImportance').value);
+            
+            if (!name) {
+                alert('节点名称不能为空');
+                return;
+            }
+            
+            if (importance < 1 || importance > 5) {
+                alert('重要程度必须在1-5之间');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/knowledge/mindmap/node`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Token': TOKEN
+                    },
+                    body: JSON.stringify({
+                        nodeId: selectedNodeId,
+                        name: name,
+                        description: description,
+                        importance: importance
+                    })
+                });
+                
+                if (response.ok) {
+                    closeEditModal();
+                    loadMindmap();
+                    alert('节点更新成功');
+                } else {
+                    alert('更新失败，请稍后重试');
+                }
+            } catch (error) {
+                console.error('Update node error:', error);
+                alert('更新失败，请稍后重试');
+            }
+        }
+
+        // AI扩充子树
+        async function expandSubtree() {
+            if (!selectedNodeId) return;
+            
+            const pos = nodePositions.get(selectedNodeId);
+            if (!pos) return;
+            
+            const node = pos.node;
+            
+            // 检查是否为第二层级以下
+            if (node.level < 2) {
+                alert('只能扩充第二层级以下的节点');
+                return;
+            }
+            
+            // 检查是否已有子节点
+            if (node.children && node.children.length > 0) {
+                alert('该节点已有子节点，无法扩充');
+                return;
+            }
+            
+            if (!confirm(`确定要使用AI扩充节点"${node.name}"的子节点吗？`)) {
+                return;
+            }
+            
+            const userId = getUserId();
+            try {
+                const response = await fetch(`${API_BASE}/api/knowledge/mindmap/expand`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Token': TOKEN
+                    },
+                    body: JSON.stringify({
+                        userId: userId,
+                        nodeId: selectedNodeId
+                    })
+                });
+                
+                if (response.ok) {
+                    loadMindmap();
+                    alert('子树扩充成功');
+                } else {
+                    const error = await response.text();
+                    alert('扩充失败: ' + error);
+                }
+            } catch (error) {
+                console.error('Expand subtree error:', error);
+                alert('扩充失败，请稍后重试');
+            }
+        }
+
+        function resetView() {
+            offsetX = 0;
+            offsetY = 0;
+            zoomLevel = 1;
+            selectedNodeId = null;
+            renderMindmap();
+            updateToolbarButtons();
+        }
+
+        // 创建根节点相关函数
+        function showCreateRootModal() {
+            document.getElementById('createRootModal').classList.remove('hidden');
+            document.getElementById('createRootModal').classList.add('flex');
+            document.getElementById('createName').value = '';
+            document.getElementById('createDescription').value = '';
+            document.getElementById('createImportance').value = '3';
+        }
+
+        function closeCreateRootModal() {
+            document.getElementById('createRootModal').classList.add('hidden');
+            document.getElementById('createRootModal').classList.remove('flex');
+        }
+
+        async function saveRootNode() {
+            const name = document.getElementById('createName').value.trim();
+            const description = document.getElementById('createDescription').value.trim();
+            const importance = parseInt(document.getElementById('createImportance').value);
+            
+            if (!name) {
+                alert('节点名称不能为空');
+                return;
+            }
+            
+            if (importance < 1 || importance > 5) {
+                alert('重要程度必须在1-5之间');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/knowledge/mindmap/root`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Token': TOKEN
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        description: description,
+                        importance: importance
+                    })
+                });
+                
+                if (response.ok) {
+                    closeCreateRootModal();
+                    loadMindmap();
+                    alert('根节点创建成功');
+                } else {
+                    const error = await response.text();
+                    alert('创建失败: ' + error);
+                }
+            } catch (error) {
+                console.error('Create root node error:', error);
+                alert('创建失败，请稍后重试');
+            }
+        }
+
+        // 页面加载时检查登录状态
+        window.addEventListener('DOMContentLoaded', () => {
+            checkLogin();
+        });
+    </script>
+</body>
+</html>

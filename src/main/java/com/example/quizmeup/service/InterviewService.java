@@ -1,25 +1,26 @@
 package com.example.quizmeup.service;
 
 import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.example.quizmeup.ai.LlmClient;
 import com.example.quizmeup.ai.PromptService;
 import com.example.quizmeup.domain.entity.Knowledge;
+import com.example.quizmeup.domain.entity.Question;
 import com.example.quizmeup.domain.entity.QuestionRecord;
 import com.example.quizmeup.domain.entity.UserMastery;
 import com.example.quizmeup.infra.mapper.KnowledgeMapper;
+import com.example.quizmeup.infra.mapper.QuestionMapper;
 import com.example.quizmeup.infra.mapper.QuestionRecordMapper;
 import com.example.quizmeup.infra.mapper.UserMasteryMapper;
 import com.example.quizmeup.service.dto.AnswerRequest;
 import com.example.quizmeup.service.dto.AnswerResult;
 import com.example.quizmeup.service.dto.QuestionDTO;
-import com.example.quizmeup.service.dto.QuestionGenRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -31,132 +32,155 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class InterviewService {
 
-    private static final String CACHE_KEY_PREFIX = "aimock:user:questions:";
-
     private final KnowledgeMapper knowledgeMapper;
-    private final UserMasteryMapper userMasteryMapper;
+    private final QuestionMapper questionMapper;
     private final QuestionRecordMapper questionRecordMapper;
+    private final UserMasteryMapper userMasteryMapper;
     private final PromptService promptService;
     private final LlmClient llmClient;
-    private final RedisTemplate<String, Object> redisTemplate;
 
     /**
-     * 获取用户相关的 Topic 列表（基于 lc_user_mastery 表）。
-     * 从 lc_user_mastery 获取用户的知识点，然后关联 lc_question_record 获取对应的 topic。
+     * 获取用户的知识点列表（叶节点，作为topic选择）。
      */
-    public List<String> getUserTopics(Long userId) {
-        // 1. 从 lc_user_mastery 获取该用户的所有 knowledge_id
+    public List<Map<String, Object>> getUserTopics(Long userId) {
+        // 获取用户有掌握度记录的所有叶节点知识点
         List<UserMastery> masteryList = userMasteryMapper.selectList(
                 Wrappers.<UserMastery>lambdaQuery()
                         .eq(UserMastery::getUserId, userId)
-                        .select(UserMastery::getKnowledgeId)
         );
         
         if (masteryList.isEmpty()) {
-            // 如果用户没有掌握度记录，返回默认推荐主题
-            return List.of("MySQL", "Java多线程", "Spring Boot", "Redis", "Java集合", "JVM原理", "设计模式");
+            return new ArrayList<>();
         }
         
-        // 2. 提取所有的 knowledge_id
-        List<Long> knowledgeIds = masteryList.stream()
+        List<String> knowledgeIds = masteryList.stream()
                 .map(UserMastery::getKnowledgeId)
-                .distinct()
                 .collect(Collectors.toList());
         
-        // 3. 从 lc_question_record 中查找这些知识点对应的 topic（去重）
-        List<QuestionRecord> records = questionRecordMapper.selectList(
-                Wrappers.<QuestionRecord>lambdaQuery()
-                        .in(QuestionRecord::getKnowledgeId, knowledgeIds)
-                        .select(QuestionRecord::getTopic)
+        // 获取这些知识点（只取叶节点）
+        List<Knowledge> leafNodes = knowledgeMapper.selectList(
+                Wrappers.<Knowledge>lambdaQuery()
+                        .in(Knowledge::getId, knowledgeIds)
+                        .eq(Knowledge::getIsLeaf, true)
         );
         
-        List<String> topics = records.stream()
-                .map(QuestionRecord::getTopic)
-                .filter(Objects::nonNull)
-                .distinct()
-                .sorted()
-                .collect(Collectors.toList());
-        
-        // 如果通过知识点找不到 topic，返回默认推荐主题
-        if (topics.isEmpty()) {
-            return List.of("MySQL", "Java多线程", "Spring Boot", "Redis", "Java集合", "JVM原理", "设计模式");
-        }
-        
-        return topics;
+        return leafNodes.stream().map(k -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", k.getId());
+            map.put("name", k.getName());
+            UserMastery mastery = masteryList.stream()
+                    .filter(m -> m.getKnowledgeId().equals(k.getId()))
+                    .findFirst()
+                    .orElse(null);
+            if (mastery != null) {
+                map.put("practicedCount", mastery.getPracticedCount());
+                map.put("totalQuestions", mastery.getTotalQuestions());
+                map.put("proficiency", mastery.getProficiency());
+            }
+            return map;
+        }).collect(Collectors.toList());
     }
 
     /**
-     * 生成个性化面试题。
+     * 获取指定知识点的所有题目（首次调用时生成）。
      */
-    public List<QuestionRecord> generateQuestions(QuestionGenRequest req) {
-        List<UserMastery> masteryList = userMasteryMapper.selectList(
-                Wrappers.<UserMastery>lambdaQuery().eq(UserMastery::getUserId, req.getUserId())
-                        .orderByAsc(UserMastery::getMasteryScore).last("limit 30"));
-        List<Long> weakIds = masteryList.stream().map(UserMastery::getKnowledgeId).toList();
-
-        List<Long> recentAnswered = questionRecordMapper.selectList(
-                        Wrappers.<QuestionRecord>lambdaQuery()
-                                .eq(QuestionRecord::getUserId, req.getUserId())
-                                .select(QuestionRecord::getKnowledgeId))
-                .stream().map(QuestionRecord::getKnowledgeId).toList();
-
-        List<Long> targetIds = weakIds.stream()
-                .filter(id -> !recentAnswered.contains(id)).limit(10).toList();
-        if (targetIds.isEmpty()) {
-            targetIds = weakIds.stream().limit(10).toList();
+    @Transactional
+    public List<QuestionDTO> getQuestionsByKnowledge(Long userId, String knowledgeId) {
+        // 1. 检查该知识点是否已有题目
+        List<Question> existingQuestions = questionMapper.selectList(
+                Wrappers.<Question>lambdaQuery()
+                        .eq(Question::getKnowledgeId, knowledgeId)
+        );
+        
+        // 2. 如果没有题目，调用LLM生成
+        if (existingQuestions.isEmpty()) {
+            Knowledge knowledge = knowledgeMapper.selectById(knowledgeId);
+            if (knowledge == null) {
+                throw new IllegalArgumentException("知识点不存在: " + knowledgeId);
+            }
+            
+            // 调用LLM生成题目
+            String prompt = promptService.render("QUESTION_GEN_BY_KNOWLEDGE", Map.of(
+                    "knowledgeName", knowledge.getName(),
+                    "knowledgeDescription", knowledge.getDescription() != null ? knowledge.getDescription() : ""
+            ));
+            String raw = llmClient.call(prompt);
+            JSONArray questionsJson = JSON.parseArray(raw);
+            
+            // 保存题目
+            for (int i = 0; i < questionsJson.size(); i++) {
+                JSONObject q = questionsJson.getJSONObject(i);
+                Question question = new Question();
+                question.setId(knowledgeId + "_q" + (i + 1));
+                question.setKnowledgeId(knowledgeId);
+                question.setQuestionText(q.getString("questionText"));
+                question.setModelAnswer(q.getString("modelAnswer"));
+                question.setDifficulty(q.getInteger("difficulty") != null ? q.getInteger("difficulty") : 3);
+                question.setCreatedAt(LocalDateTime.now());
+                question.setUpdatedAt(LocalDateTime.now());
+                
+                questionMapper.insert(question);
+            }
+            
+            // 更新 lc_user_mastery 的 total_questions
+            UserMastery mastery = userMasteryMapper.selectOne(
+                    Wrappers.<UserMastery>lambdaQuery()
+                            .eq(UserMastery::getUserId, userId)
+                            .eq(UserMastery::getKnowledgeId, knowledgeId)
+            );
+            if (mastery != null) {
+                mastery.setTotalQuestions(questionsJson.size());
+                // 使用复合主键更新
+                userMasteryMapper.update(mastery, Wrappers.<UserMastery>lambdaUpdate()
+                        .eq(UserMastery::getUserId, userId)
+                        .eq(UserMastery::getKnowledgeId, knowledgeId));
+            }
+            
+            // 重新查询
+            existingQuestions = questionMapper.selectList(
+                    Wrappers.<Question>lambdaQuery()
+                            .eq(Question::getKnowledgeId, knowledgeId)
+            );
         }
-
-        List<Knowledge> knowledges = CollectionUtils.isEmpty(targetIds)
-                ? knowledgeMapper.selectList(Wrappers.<Knowledge>lambdaQuery().last("limit 10"))
-                : knowledgeMapper.selectBatchIds(targetIds);
-
-        String prompt = promptService.render("QUESTION_GEN", Map.of(
-                "topic", req.getTopic(),
-                "knowledge", knowledges
-        ));
-        String raw = llmClient.call(prompt);
-        List<QuestionDTO> qs = JSON.parseArray(raw, QuestionDTO.class);
-
-        List<QuestionRecord> saved = new ArrayList<>();
-        for (QuestionDTO q : qs) {
-            QuestionRecord record = new QuestionRecord();
-            record.setUserId(req.getUserId());
-            record.setKnowledgeId(q.getKnowledgeId());
-            record.setTopic(req.getTopic());
-            record.setQuestion(q.getQuestion());
-            questionRecordMapper.insert(record);
-            saved.add(record);
-        }
-        redisTemplate.opsForValue().set(CACHE_KEY_PREFIX + req.getUserId(), saved, Duration.ofHours(2));
-        return saved;
+        
+        // 3. 转换为DTO返回
+        return existingQuestions.stream().map(q -> {
+            QuestionDTO dto = new QuestionDTO();
+            dto.setId(q.getId());
+            dto.setKnowledgeId(q.getKnowledgeId());
+            dto.setQuestionText(q.getQuestionText());
+            dto.setDifficulty(q.getDifficulty());
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     /**
      * 提交答题，调用 LLM 评估并更新掌握度。
      */
+    @Transactional
     public AnswerResult submitAnswer(AnswerRequest req) {
-        QuestionRecord record = questionRecordMapper.selectById(req.getQuestionId());
-        if (record == null || !record.getUserId().equals(req.getUserId())) {
-            throw new IllegalArgumentException("Question not found or unauthorized");
+        // 1. 获取题目
+        Question question = questionMapper.selectById(req.getQuestionId());
+        if (question == null) {
+            throw new IllegalArgumentException("题目不存在");
         }
         
-        // 构建包含问题和答案的 JSON 字符串
+        // 2. 调用LLM评分
         Map<String, Object> promptVars = new HashMap<>();
-        promptVars.put("question", record.getQuestion());
+        promptVars.put("question", question.getQuestionText());
         promptVars.put("answer", req.getAnswer());
+        promptVars.put("modelAnswer", question.getModelAnswer());
         
         String prompt = promptService.render("ANSWER_REVIEW", promptVars);
         String raw = llmClient.call(prompt);
-        
-        // 解析 LLM 返回的 JSON
         AnswerResult result = JSON.parseObject(raw, AnswerResult.class);
         
-        // 确保字段不为空，设置默认值
+        // 确保字段不为空
         if (result.getFeedbackItems() == null) {
             result.setFeedbackItems(new ArrayList<>());
         }
         if (result.getRecommendedAnswer() == null || result.getRecommendedAnswer().isEmpty()) {
-            result.setRecommendedAnswer("暂无推荐回答");
+            result.setRecommendedAnswer(question.getModelAnswer());
         }
         if (result.getAnalysis() == null || result.getAnalysis().isEmpty()) {
             result.setAnalysis("暂无详细分析");
@@ -164,59 +188,78 @@ public class InterviewService {
         if (result.getScore() == null) {
             result.setScore(0);
         }
-
-        record.setAnswer(req.getAnswer());
+        
+        // 3. 保存答题记录
+        QuestionRecord record = new QuestionRecord();
+        record.setUserId(req.getUserId());
+        record.setQuestionId(req.getQuestionId());
         record.setScore(result.getScore());
-        record.setAnalysis(result.getAnalysis());
-        questionRecordMapper.updateById(record);
-
-        UserMastery mastery = userMasteryMapper.selectOne(
-                Wrappers.<UserMastery>lambdaQuery()
-                        .eq(UserMastery::getUserId, req.getUserId())
-                        .eq(UserMastery::getKnowledgeId, record.getKnowledgeId()));
-        if (mastery == null) {
-            mastery = new UserMastery();
-            mastery.setUserId(req.getUserId());
-            mastery.setKnowledgeId(record.getKnowledgeId());
-            mastery.setMasteryScore(Math.max(0, Math.min(100, Optional.ofNullable(result.getScore()).orElse(0))));
-            mastery.setLastAnswerTime(LocalDateTime.now());
-            userMasteryMapper.insert(mastery);
-        } else {
-            int score = Optional.ofNullable(result.getScore()).orElse(0);
-            int newScore = (int) (mastery.getMasteryScore() * 0.7 + score * 0.3);
-            mastery.setMasteryScore(Math.min(100, Math.max(0, newScore)));
-            mastery.setLastAnswerTime(LocalDateTime.now());
-            userMasteryMapper.updateById(mastery);
-        }
+        record.setSubmittedAt(LocalDateTime.now());
+        questionRecordMapper.insert(record);
+        
+        // 4. 更新知识点掌握度（proficiency = 该知识点下所有题的平均分）
+        updateKnowledgeProficiency(req.getUserId(), question.getKnowledgeId());
+        
         return result;
     }
 
     /**
-     * 获取知识点树及掌握度。
+     * 更新知识点掌握度。
      */
-    public List<Map<String, Object>> knowledgeTree(Long userId) {
-        List<Knowledge> all = knowledgeMapper.selectList(null);
-        Map<Long, Integer> mastery = userMasteryMapper.selectList(
-                        Wrappers.<UserMastery>lambdaQuery().eq(UserMastery::getUserId, userId))
-                .stream().collect(Collectors.toMap(UserMastery::getKnowledgeId, UserMastery::getMasteryScore));
-        Map<Long, List<Knowledge>> children = all.stream()
-                .collect(Collectors.groupingBy(k -> Optional.ofNullable(k.getParentId()).orElse(0L)));
-        return buildTree(children, mastery, 0L);
-    }
-
-    private List<Map<String, Object>> buildTree(Map<Long, List<Knowledge>> children,
-                                                Map<Long, Integer> mastery,
-                                                Long pid) {
-        List<Knowledge> nodes = children.getOrDefault(pid, List.of());
-        List<Map<String, Object>> res = new ArrayList<>();
-        for (Knowledge k : nodes) {
-            Map<String, Object> node = new HashMap<>();
-            node.put("id", k.getId());
-            node.put("name", k.getName());
-            node.put("mastery", mastery.getOrDefault(k.getId(), 0));
-            node.put("children", buildTree(children, mastery, k.getId()));
-            res.add(node);
+    private void updateKnowledgeProficiency(Long userId, String knowledgeId) {
+        // 获取该知识点下的所有答题记录
+        List<Question> questions = questionMapper.selectList(
+                Wrappers.<Question>lambdaQuery()
+                        .eq(Question::getKnowledgeId, knowledgeId)
+        );
+        
+        if (questions.isEmpty()) {
+            return;
         }
-        return res;
+        
+        List<String> questionIds = questions.stream()
+                .map(Question::getId)
+                .collect(Collectors.toList());
+        
+        List<QuestionRecord> records = questionRecordMapper.selectList(
+                Wrappers.<QuestionRecord>lambdaQuery()
+                        .eq(QuestionRecord::getUserId, userId)
+                        .in(QuestionRecord::getQuestionId, questionIds)
+        );
+        
+        // 计算平均分
+        int proficiency = 0;
+        if (!records.isEmpty()) {
+            proficiency = (int) records.stream()
+                    .mapToInt(QuestionRecord::getScore)
+                    .average()
+                    .orElse(0.0);
+        }
+        
+        // 更新或插入 lc_user_mastery
+        UserMastery mastery = userMasteryMapper.selectOne(
+                Wrappers.<UserMastery>lambdaQuery()
+                        .eq(UserMastery::getUserId, userId)
+                        .eq(UserMastery::getKnowledgeId, knowledgeId)
+        );
+        
+        if (mastery == null) {
+            mastery = new UserMastery();
+            mastery.setUserId(userId);
+            mastery.setKnowledgeId(knowledgeId);
+            mastery.setProficiency(proficiency);
+            mastery.setTotalQuestions(questions.size());
+            mastery.setPracticedCount(records.size());
+            mastery.setUpdatedAt(LocalDateTime.now());
+            userMasteryMapper.insert(mastery);
+        } else {
+            mastery.setProficiency(proficiency);
+            mastery.setPracticedCount(records.size());
+            mastery.setUpdatedAt(LocalDateTime.now());
+            // 使用复合主键更新
+            userMasteryMapper.update(mastery, Wrappers.<UserMastery>lambdaUpdate()
+                    .eq(UserMastery::getUserId, userId)
+                    .eq(UserMastery::getKnowledgeId, knowledgeId));
+        }
     }
 }

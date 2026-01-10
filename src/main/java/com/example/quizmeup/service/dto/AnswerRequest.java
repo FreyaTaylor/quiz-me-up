@@ -8,8 +8,8 @@ import lombok.Data;
 public class AnswerRequest {
     @NotNull
     private Long userId;
-    @NotNull
-    private Long questionId;
+    @NotBlank
+    private String questionId; // 改为String类型
     @NotBlank
     private String answer;
 }

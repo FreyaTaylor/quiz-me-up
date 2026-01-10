@@ -8,20 +8,17 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 知识点定义（树形结构）。
+ * 题目表（关联知识点叶节点）。
  */
 @Data
-@TableName("lc_knowledge")
-public class Knowledge {
+@TableName("lc_questions")
+public class Question {
     @TableId(type = IdType.INPUT)
     private String id;
-    private String parentId;
-    private String name;
-    private String description;
-    private Integer level;
-    private String path;
-    private Integer importance; // 1-5
-    private Boolean isLeaf;
+    private String knowledgeId;
+    private String questionText;
+    private String modelAnswer;
+    private Integer difficulty; // 1-5
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

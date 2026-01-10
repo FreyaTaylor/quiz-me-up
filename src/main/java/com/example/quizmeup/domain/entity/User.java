@@ -8,15 +8,14 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 用户答题记录。
+ * 用户实体。
  */
 @Data
-@TableName("lc_question_record")
-public class QuestionRecord {
+@TableName("users")
+public class User {
     @TableId(type = IdType.AUTO)
     private Long id;
-    private Long userId;
-    private String questionId;
-    private Integer score; // 0-100
-    private LocalDateTime submittedAt;
+    private String username;
+    private String passwordHash;
+    private LocalDateTime createdAt;
 }
