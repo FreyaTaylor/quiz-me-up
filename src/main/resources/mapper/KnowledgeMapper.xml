@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.quizmeup.mapper.KnowledgeMapper">
+
+    <!-- 查询所有叶节点知识点 -->
+    <select id="selectAllLeafNodes" resultType="com.example.quizmeup.entity.Knowledge">
+        SELECT id,
+               parent_id,
+               name,
+               description,
+               level,
+               importance,
+               is_leaf,
+               created_at,
+               updated_at
+        FROM lc_knowledge
+        WHERE is_leaf = TRUE
+        ORDER BY created_at ASC
+    </select>
+
+</mapper>

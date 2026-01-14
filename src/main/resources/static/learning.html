@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学习 - Quiz Me Up</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 顶部导航栏 -->
+    <nav class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- 左侧：页面标题和导航 -->
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-xl font-bold text-gray-800">Quiz Me Up</h1>
+                    <div class="flex space-x-2">
+                        <a href="learning.html" class="px-3 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-700">学习</a>
+                        <a href="progress.html" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">进度</a>
+                    </div>
+                </div>
+                
+                <!-- 右侧：登录状态 -->
+                <div class="flex items-center space-x-4">
+                    <span id="userInfo" class="text-sm text-gray-600" style="display: none;"></span>
+                    <button id="loginBtn" onclick="showLoginModal()" class="px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white text-sm font-medium rounded-md focus:outline-none focus:shadow-outline">
+                        登录
+                    </button>
+                    <button id="logoutBtn" onclick="handleLogout()" class="px-4 py-2 bg-gray-500 hover:bg-gray-700 text-white text-sm font-medium rounded-md focus:outline-none focus:shadow-outline" style="display: none;">
+                        登出
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 登录模态框 -->
+    <div id="loginModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 items-center justify-center z-50" style="display: none;">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">登录</h2>
+                <button onclick="hideLoginModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="username">用户名</label>
+                    <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                           id="username" type="text" placeholder="请输入用户名" required>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="password">密码</label>
+                    <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                           id="password" type="password" placeholder="请输入密码" required>
+                </div>
+                <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full" 
+                        type="submit">登录</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 学习内容 -->
+    <div id="learningSection" class="max-w-4xl mx-auto mt-10 p-6">
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h1 class="text-3xl font-bold mb-6">学习</h1>
+            
+            <!-- 知识点选择 -->
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="knowledgeSelect">选择知识点</label>
+                <select id="knowledgeSelect" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    <option value="">请选择知识点...</option>
+                </select>
+            </div>
+            <button onclick="startLearning()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                开始学习
+            </button>
+        </div>
+
+        <!-- 题目列表 -->
+        <div id="questionsListCard" class="bg-white rounded-lg shadow-md p-6 mb-6" style="display: none;">
+            <h2 class="text-2xl font-bold mb-4">题目列表 (<span id="questionCount">0</span>)</h2>
+            <div id="questionsList" class="space-y-6"></div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        var userId = null;
+        var username = null;
+
+        // 页面加载时检查登录状态
+        window.onload = function() {
+            checkLoginStatus();
+        };
+
+        // 检查登录状态
+        function checkLoginStatus() {
+            userId = sessionStorage.getItem('userId');
+            username = sessionStorage.getItem('username');
+            
+            if (userId) {
+                updateLoginUI(true);
+                loadLeafNodes();
+            } else {
+                updateLoginUI(false);
+            }
+        }
+
+        // 更新登录UI
+        function updateLoginUI(isLoggedIn) {
+            var loginBtn = document.getElementById('loginBtn');
+            var logoutBtn = document.getElementById('logoutBtn');
+            var userInfo = document.getElementById('userInfo');
+            
+            if (isLoggedIn) {
+                loginBtn.style.display = 'none';
+                logoutBtn.style.display = 'block';
+                userInfo.style.display = 'block';
+                userInfo.textContent = '用户: ' + (username || 'User ' + userId);
+            } else {
+                loginBtn.style.display = 'block';
+                logoutBtn.style.display = 'none';
+                userInfo.style.display = 'none';
+            }
+        }
+
+        // 显示登录模态框
+        function showLoginModal() {
+            document.getElementById('loginModal').style.display = 'flex';
+        }
+
+        // 隐藏登录模态框
+        function hideLoginModal() {
+            document.getElementById('loginModal').style.display = 'none';
+            // 清空表单
+            document.getElementById('loginForm').reset();
+        }
+
+        // 登录处理
+        function handleLogin(event) {
+            event.preventDefault();
+            var usernameInput = document.getElementById('username').value;
+            var password = document.getElementById('password').value;
+
+            fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: usernameInput,
+                    password: password
+                })
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.code === 200 && data.data) {
+                    userId = data.data.userId.toString();
+                    username = data.data.username || usernameInput;
+                    sessionStorage.setItem('userId', userId);
+                    sessionStorage.setItem('username', username);
+                    
+                    hideLoginModal();
+                    updateLoginUI(true);
+                    loadLeafNodes();
+                } else {
+                    alert(data.message || '登录失败');
+                }
+            })
+            .catch(function(error) {
+                alert(error.message || '登录失败，请重试');
+            });
+        }
+
+        // 登出处理
+        function handleLogout() {
+            if (confirm('确定要登出吗？')) {
+                sessionStorage.removeItem('userId');
+                sessionStorage.removeItem('username');
+                userId = null;
+                username = null;
+                updateLoginUI(false);
+                // 清空页面内容
+                document.getElementById('knowledgeSelect').innerHTML = '<option value="">请选择知识点...</option>';
+                document.getElementById('questionsListCard').style.display = 'none';
+            }
+        }
+
+        // 加载叶节点列表
+        function loadLeafNodes() {
+            if (!userId) {
+                alert('请先登录');
+                return;
+            }
+            
+            fetch('/api/v1/knowledge/leaf-nodes?userId=' + userId, {
+                headers: {
+                    'userId': userId
+                }
+            })
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.code === 200 && data.data) {
+                        var select = document.getElementById('knowledgeSelect');
+                        select.innerHTML = '<option value="">请选择知识点...</option>';
+                        data.data.forEach(function(knowledge) {
+                            var option = document.createElement('option');
+                            option.value = knowledge.id;
+                            option.textContent = knowledge.name;
+                            select.appendChild(option);
+                        });
+                    } else {
+                        alert(data.message || '加载知识点失败');
+                    }
+                })
+                .catch(function(error) {
+                    alert(error.message || '加载知识点失败');
+                });
+        }
+
+        // 开始学习
+        function startLearning() {
+            var knowledgeId = document.getElementById('knowledgeSelect').value;
+            if (!knowledgeId) {
+                alert('请先选择知识点');
+                return;
+            }
+
+            fetch('/api/v1/learning/start?userId=' + userId, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'userId': userId
+                },
+                body: JSON.stringify({
+                    userId: parseInt(userId),
+                    knowledgeId: knowledgeId
+                })
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.code === 200 && data.data) {
+                    var questions = data.data;
+                    if (!questions || questions.length === 0) {
+                        alert('该知识点下暂无题目');
+                        return;
+                    }
+                    
+                    // 显示题目列表
+                    displayQuestionsList(questions);
+                } else {
+                    alert(data.message || '获取题目失败');
+                }
+            })
+            .catch(function(error) {
+                alert(error.message || '获取题目失败');
+            });
+        }
+
+        // 显示题目列表（每个题目包含答题区域）
+        function displayQuestionsList(questions) {
+            // 确保 questions 是数组
+            if (!Array.isArray(questions)) {
+                console.error('题目数据格式错误:', questions);
+                alert('题目数据格式错误');
+                return;
+            }
+            
+            var questionsList = document.getElementById('questionsList');
+            if (!questionsList) {
+                console.error('找不到 questionsList 元素');
+                return;
+            }
+            
+            questionsList.innerHTML = '';
+            
+            var questionCountEl = document.getElementById('questionCount');
+            if (questionCountEl) {
+                questionCountEl.textContent = questions.length;
+            }
+            
+            if (questions.length === 0) {
+                questionsList.innerHTML = '<p class="text-gray-500 text-center">暂无题目</p>';
+                document.getElementById('questionsListCard').style.display = 'block';
+                return;
+            }
+            
+            questions.forEach(function(question, index) {
+                if (!question || !question.id || !question.questionText) {
+                    console.warn('题目数据不完整:', question);
+                    return;
+                }
+                
+                // 创建题目卡片
+                var questionCard = document.createElement('div');
+                questionCard.className = 'border border-gray-300 rounded-lg p-6 mb-6';
+                questionCard.id = 'question-card-' + question.id;
+                
+                questionCard.innerHTML = 
+                    '<div class="mb-4">' +
+                        '<div class="font-semibold text-lg mb-2 text-blue-600">题目 ' + (index + 1) + '</div>' +
+                        '<div class="bg-gray-100 p-4 rounded mb-4">' +
+                            '<p class="text-gray-800">' + escapeHtml(question.questionText) + '</p>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="mb-4">' +
+                        '<label class="block text-gray-700 text-sm font-bold mb-2">你的答案</label>' +
+                        '<textarea id="answer-' + question.id + '" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" ' +
+                              'rows="4" placeholder="请输入你的答案..."></textarea>' +
+                    '</div>' +
+                    '<button onclick="submitAnswerForQuestion(\'' + question.id + '\')" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">' +
+                        '提交答案' +
+                    '</button>' +
+                    '<div id="evaluation-' + question.id + '" class="mt-4" style="display: none;"></div>';
+                
+                questionsList.appendChild(questionCard);
+            });
+            
+            document.getElementById('questionsListCard').style.display = 'block';
+        }
+        
+        // HTML 转义函数（防止 XSS）
+        function escapeHtml(text) {
+            if (!text) return '';
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 提交答案（针对特定题目）
+        function submitAnswerForQuestion(questionId) {
+            var answerTextEl = document.getElementById('answer-' + questionId);
+            if (!answerTextEl) {
+                alert('找不到答案输入框');
+                return;
+            }
+
+            var answerText = answerTextEl.value.trim();
+            if (!answerText) {
+                alert('请输入答案');
+                return;
+            }
+
+            // 禁用提交按钮，显示加载状态
+            var submitBtn = answerTextEl.parentElement.nextElementSibling;
+            var originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = '提交中...';
+
+            fetch('/api/v1/learning/submit?userId=' + userId, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'userId': userId
+                },
+                body: JSON.stringify({
+                    userId: parseInt(userId),
+                    questionId: questionId,
+                    answerText: answerText
+                })
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+                
+                // 调试：打印接收到的数据
+                console.log('提交答案响应:', JSON.stringify(data, null, 2));
+                
+                if (data.code === 200 && data.data) {
+                    var result = data.data;
+                    // 调试：打印解析后的结果
+                    console.log('评价结果:', JSON.stringify(result, null, 2));
+                    displayEvaluation(questionId, result);
+                } else {
+                    alert(data.message || '提交答案失败');
+                }
+            })
+            .catch(function(error) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+                alert(error.message || '提交答案失败');
+            });
+        }
+
+        // 显示评价结果
+        function displayEvaluation(questionId, result) {
+            var evaluationEl = document.getElementById('evaluation-' + questionId);
+            if (!evaluationEl) {
+                console.error('找不到评价元素: evaluation-' + questionId);
+                return;
+            }
+
+            // 调试：打印结果对象
+            console.log('displayEvaluation - result:', result);
+            console.log('displayEvaluation - feedbackItems:', result.feedbackItems);
+            console.log('displayEvaluation - recommendedAnswer:', result.recommendedAnswer);
+
+            var score = result.score || 0;
+            var scoreColor = score >= 80 ? 'text-green-600' : (score >= 60 ? 'text-yellow-600' : 'text-red-600');
+            
+            var html = '<div class="border-t pt-4 mt-4">' +
+                '<h3 class="text-xl font-bold mb-4">评分结果</h3>' +
+                '<div class="mb-4">' +
+                    '<div class="text-3xl font-bold ' + scoreColor + ' mb-2">得分: ' + score.toFixed(1) + '分</div>' +
+                '</div>';
+
+            // 显示分析
+            if (result.analysis) {
+                html += '<div class="mb-4">' +
+                    '<h4 class="text-lg font-semibold mb-2">详细分析</h4>' +
+                    '<div class="bg-gray-100 p-4 rounded whitespace-pre-wrap text-sm">' + escapeHtml(result.analysis) + '</div>' +
+                '</div>';
+            }
+
+            // 显示反馈项（feedbackItems）- 表格形式
+            console.log('检查 feedbackItems:', result.feedbackItems, '类型:', typeof result.feedbackItems, '是数组:', Array.isArray(result.feedbackItems));
+            if (result.feedbackItems && Array.isArray(result.feedbackItems) && result.feedbackItems.length > 0) {
+                console.log('准备渲染 feedbackItems 表格，共', result.feedbackItems.length, '项');
+                html += '<div class="mb-4">' +
+                    '<h4 class="text-lg font-semibold mb-3">评分要点</h4>' +
+                    '<div class="overflow-x-auto">' +
+                        '<table class="min-w-full border-collapse border border-gray-300">' +
+                            '<thead>' +
+                                '<tr class="bg-gray-100">' +
+                                    '<th class="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-gray-700">状态</th>' +
+                                    '<th class="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-gray-700">评分标准</th>' +
+                                    '<th class="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-gray-700">你的回答</th>' +
+                                '</tr>' +
+                            '</thead>' +
+                            '<tbody>';
+                
+                result.feedbackItems.forEach(function(item, index) {
+                    // 确保 covered 是布尔值
+                    var isCovered = item.covered === true || item.covered === 'true';
+                    var coveredClass = isCovered ? 'bg-green-50' : 'bg-red-50';
+                    var coveredIcon = isCovered ? 
+                        '<span class="inline-flex items-center px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">✓ 已覆盖</span>' : 
+                        '<span class="inline-flex items-center px-2 py-1 rounded text-xs font-semibold bg-red-100 text-red-800">✗ 未覆盖</span>';
+                    
+                    // 检查 userContent 是否为空（空字符串或 null/undefined）
+                    var userContent = item.userContent;
+                    var userContentDisplay = (userContent && userContent.trim().length > 0) ? 
+                        escapeHtml(userContent) : 
+                        '<span class="text-gray-400 italic">未提及</span>';
+                    
+                    html += '<tr class="' + coveredClass + '">' +
+                        '<td class="border border-gray-300 px-4 py-3 align-top">' + coveredIcon + '</td>' +
+                        '<td class="border border-gray-300 px-4 py-3 align-top text-sm text-gray-800">' + escapeHtml(item.criterion || '') + '</td>' +
+                        '<td class="border border-gray-300 px-4 py-3 align-top text-sm text-gray-700">' + userContentDisplay + '</td>' +
+                    '</tr>';
+                });
+                
+                html += '</tbody>' +
+                    '</table>' +
+                    '</div>' +
+                '</div>';
+            }
+
+            // 显示推荐答案 - 优化样式
+            console.log('检查 recommendedAnswer:', result.recommendedAnswer, '类型:', typeof result.recommendedAnswer);
+            if (result.recommendedAnswer && result.recommendedAnswer.trim().length > 0) {
+                console.log('准备渲染推荐答案');
+                // 处理 Markdown 格式的换行（\n 转换为 <br>）
+                var recommendedAnswerText = escapeHtml(result.recommendedAnswer);
+                // 将 \n 转换为 <br>，但保留原有的换行处理
+                recommendedAnswerText = recommendedAnswerText.replace(/\n/g, '<br>');
+                
+                html += '<div class="mb-4">' +
+                    '<h4 class="text-lg font-semibold mb-3 flex items-center">' +
+                        '<svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+                            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>' +
+                        '</svg>' +
+                        '推荐答案' +
+                    '</h4>' +
+                    '<div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 p-5 rounded-r-lg shadow-sm">' +
+                        '<div class="text-sm text-gray-800 leading-relaxed">' + recommendedAnswerText + '</div>' +
+                    '</div>' +
+                '</div>';
+            }
+
+            html += '</div>';
+            
+            console.log('生成的 HTML 长度:', html.length);
+            console.log('HTML 预览:', html.substring(0, 500));
+            
+            evaluationEl.innerHTML = html;
+            evaluationEl.style.display = 'block';
+            
+            // 验证元素是否真的显示
+            console.log('评价元素显示状态:', evaluationEl.style.display);
+            console.log('评价元素内容长度:', evaluationEl.innerHTML.length);
+            
+            // 滚动到评价区域
+            evaluationEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    </script>
+</body>
+</html>

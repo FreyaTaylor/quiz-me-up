@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.quizmeup.mapper.QuestionRecordMapper">
+
+    <select id="selectByUserIdAndKnowledgeId" resultType="com.example.quizmeup.entity.QuestionRecord">
+        SELECT qr.id,
+               qr.user_id,
+               qr.question_id,
+               qr.score,
+               qr.submitted_at
+        FROM lc_question_record qr
+        WHERE qr.user_id = #{userId}
+          AND qr.question_id IN (
+            SELECT q.id FROM lc_questions q WHERE q.knowledge_id = #{knowledgeId}
+          )
+        ORDER BY qr.submitted_at DESC
+    </select>
+
+    <select id="selectByUserIdAndQuestionId" resultType="com.example.quizmeup.entity.QuestionRecord">
+        SELECT qr.id,
+               qr.user_id,
+               qr.question_id,
+               qr.score,
+               qr.submitted_at
+        FROM lc_question_record qr
+        WHERE qr.user_id = #{userId}
+          AND qr.question_id = #{questionId}
+        ORDER BY qr.submitted_at DESC
+    </select>
+
+    <insert id="insert" parameterType="com.example.quizmeup.entity.QuestionRecord"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO lc_question_record (user_id, question_id, score)
+        VALUES (#{userId}, #{questionId}, #{score})
+    </insert>
+
+</mapper>

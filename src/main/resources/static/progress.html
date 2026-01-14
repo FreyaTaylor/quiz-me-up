@@ -3,520 +3,324 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI面试模拟 - 学习进度</title>
+    <title>学习进度 - Quiz Me Up</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        /* 表格样式 */
-        .knowledge-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-        }
-
-        .knowledge-table th {
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            color: white;
-            font-weight: 600;
-            padding: 16px;
-            text-align: left;
-            border: none;
-        }
-
-        .knowledge-table th:first-child {
-            border-top-left-radius: 12px;
-        }
-
-        .knowledge-table th:last-child {
-            border-top-right-radius: 12px;
-        }
-
-        .knowledge-table td {
-            padding: 14px 16px;
-            border-bottom: 1px solid #e5e7eb;
-            background: white;
-        }
-
-        .knowledge-table tbody tr {
-            transition: all 0.2s ease;
-        }
-
-        .knowledge-table tbody tr:hover {
-            background-color: #f9fafb;
-        }
-
-        .knowledge-table tbody tr:last-child td:first-child {
-            border-bottom-left-radius: 12px;
-        }
-
-        .knowledge-table tbody tr:last-child td:last-child {
-            border-bottom-right-radius: 12px;
-        }
-
-        /* 展开/折叠按钮 */
-        .toggle-icon {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            line-height: 20px;
-            text-align: center;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            background: #e5e7eb;
-            color: #6b7280;
-            font-size: 12px;
-            font-weight: bold;
-            margin-right: 8px;
-        }
-
-        .toggle-icon:hover {
-            background: #3b82f6;
-            color: white;
-        }
-
-        .toggle-icon.expanded {
-            background: #3b82f6;
-            color: white;
-        }
-
-        /* 子节点行 */
-        .child-row {
-            display: none;
-        }
-
-        .child-row.expanded {
-            display: table-row;
-            animation: slideDown 0.3s ease;
-        }
-
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* 缩进样式 */
-        .indent-1 { padding-left: 40px !important; }
-        .indent-2 { padding-left: 60px !important; }
-        .indent-3 { padding-left: 80px !important; }
-
-        /* 知识点名称样式 */
-        .knowledge-name {
-            font-weight: 500;
-            color: #1f2937;
-        }
-
-        .knowledge-name.root {
-            font-weight: 600;
-            font-size: 1.05rem;
-            color: #1e40af;
-        }
-
-        /* 掌握度进度条 */
-        .mastery-progress-container {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .mastery-progress-bar {
-            flex: 1;
-            height: 24px;
-            background: #e5e7eb;
-            border-radius: 12px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .mastery-progress-fill {
-            height: 100%;
-            border-radius: 12px;
-            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 11px;
-            font-weight: 600;
-        }
-
-        .mastery-progress-fill::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(90deg, 
-                transparent 0%, 
-                rgba(255, 255, 255, 0.3) 50%, 
-                transparent 100%);
-            animation: shimmer 2s infinite;
-        }
-
-        @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
-
-        /* 掌握度徽章 */
-        .mastery-badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            white-space: nowrap;
-        }
-
-        /* 掌握度分数 */
-        .mastery-score {
-            font-size: 1.25rem;
-            font-weight: 700;
-            min-width: 50px;
-            text-align: right;
-        }
-
-        /* 空状态 */
-        .empty-state {
-            padding: 60px 20px;
-            text-align: center;
-            color: #6b7280;
-        }
-
-        .empty-state-icon {
-            font-size: 4rem;
-            margin-bottom: 16px;
-        }
-    </style>
 </head>
-<body class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
-    <!-- 导航栏 -->
-    <nav class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xl">
-        <div class="container mx-auto px-4 py-4">
-            <div class="flex justify-between items-center">
-                <h1 class="text-2xl font-bold">📊 AI面试模拟平台</h1>
-                <div class="space-x-4">
-                    <a href="/interview.html" class="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors backdrop-blur-sm">答题</a>
-                    <a href="/progress.html" class="px-4 py-2 bg-white/30 rounded-lg hover:bg-white/40 transition-colors backdrop-blur-sm font-semibold">进度</a>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 顶部导航栏 -->
+    <nav class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- 左侧：页面标题和导航 -->
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-xl font-bold text-gray-800">Quiz Me Up</h1>
+                    <div class="flex space-x-2">
+                        <a href="learning.html" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">学习</a>
+                        <a href="progress.html" class="px-3 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-700">进度</a>
+                    </div>
+                </div>
+                
+                <!-- 右侧：登录状态 -->
+                <div class="flex items-center space-x-4">
+                    <span id="userInfo" class="text-sm text-gray-600" style="display: none;"></span>
+                    <button id="loginBtn" onclick="showLoginModal()" class="px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white text-sm font-medium rounded-md focus:outline-none focus:shadow-outline">
+                        登录
+                    </button>
+                    <button id="logoutBtn" onclick="handleLogout()" class="px-4 py-2 bg-gray-500 hover:bg-gray-700 text-white text-sm font-medium rounded-md focus:outline-none focus:shadow-outline" style="display: none;">
+                        登出
+                    </button>
                 </div>
             </div>
         </div>
     </nav>
 
-    <div class="container mx-auto px-4 py-8 max-w-7xl">
-        <!-- 控制面板 -->
-        <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 mb-6 border border-white/20">
-            <div class="flex flex-col md:flex-row items-center justify-between gap-4">
-                <div>
-                    <h2 class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                        📋 知识点掌握度表格
-                    </h2>
-                    <p class="text-gray-600 mt-1">查看你的学习进度和知识掌握情况</p>
+    <!-- 登录模态框 -->
+    <div id="loginModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 items-center justify-center z-50" style="display: none;">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">登录</h2>
+                <button onclick="hideLoginModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="username">用户名</label>
+                    <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                           id="username" type="text" placeholder="请输入用户名" required>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <label class="text-gray-700 font-medium">用户ID：</label>
-                    <input 
-                        type="number" 
-                        id="userIdInput" 
-                        value="1" 
-                        min="1"
-                        class="w-24 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    />
-                    <button 
-                        onclick="loadKnowledgeTree()" 
-                        class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 font-semibold">
-                        🔄 刷新
-                    </button>
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="password">密码</label>
+                    <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                           id="password" type="password" placeholder="请输入密码" required>
+                </div>
+                <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full" 
+                        type="submit">登录</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto mt-10 p-6">
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h1 class="text-3xl font-bold mb-6">学习进度</h1>
+            
+            <!-- 自动加载进度（如果已登录） -->
+            <div id="autoLoadSection" style="display: none;">
+                <p class="text-gray-600 mb-4">已登录，自动加载您的学习进度...</p>
+            </div>
+            
+            <!-- 手动输入用户ID（未登录时显示） -->
+            <div id="manualLoadSection">
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="userIdInput">用户ID</label>
+                    <div class="flex">
+                        <input id="userIdInput" type="number" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                               placeholder="请输入用户ID" value="">
+                        <button onclick="loadProgress()" class="ml-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                            加载进度
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- 表格容器 -->
-        <div id="tableContainer" class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-white/20 overflow-hidden">
-            <div class="empty-state">
-                <div class="empty-state-icon">📊</div>
-                <p class="text-xl">点击"刷新"按钮加载知识点数据</p>
-            </div>
+        <!-- 进度树 -->
+        <div id="progressTree" class="bg-white rounded-lg shadow-md p-6">
+            <p class="text-gray-500 text-center">请先登录或输入用户ID并点击"加载进度"</p>
         </div>
     </div>
 
     <script>
-        const API_BASE = '';
-        const TOKEN = 'local-dev-token';
+        // 全局变量
+        var userId = null;
+        var username = null;
 
-        // 页面加载时自动加载
-        window.addEventListener('DOMContentLoaded', () => {
-            loadKnowledgeTree();
-        });
+        // 页面加载时检查登录状态
+        window.onload = function() {
+            checkLoginStatus();
+        };
 
-        // 加载知识点树
-        async function loadKnowledgeTree() {
-            const userId = document.getElementById('userIdInput').value;
-            if (!userId || userId < 1) {
-                alert('请输入有效的用户ID');
+        // 检查登录状态
+        function checkLoginStatus() {
+            userId = sessionStorage.getItem('userId');
+            username = sessionStorage.getItem('username');
+            
+            if (userId) {
+                updateLoginUI(true);
+                document.getElementById('userIdInput').value = userId;
+                document.getElementById('autoLoadSection').style.display = 'block';
+                document.getElementById('manualLoadSection').style.display = 'none';
+                loadProgress();
+            } else {
+                updateLoginUI(false);
+                document.getElementById('autoLoadSection').style.display = 'none';
+                document.getElementById('manualLoadSection').style.display = 'block';
+            }
+        }
+
+        // 更新登录UI
+        function updateLoginUI(isLoggedIn) {
+            var loginBtn = document.getElementById('loginBtn');
+            var logoutBtn = document.getElementById('logoutBtn');
+            var userInfo = document.getElementById('userInfo');
+            
+            if (isLoggedIn) {
+                loginBtn.style.display = 'none';
+                logoutBtn.style.display = 'block';
+                userInfo.style.display = 'block';
+                userInfo.textContent = '用户: ' + (username || 'User ' + userId);
+            } else {
+                loginBtn.style.display = 'block';
+                logoutBtn.style.display = 'none';
+                userInfo.style.display = 'none';
+            }
+        }
+
+        // 显示登录模态框
+        function showLoginModal() {
+            var modal = document.getElementById('loginModal');
+            if (modal) {
+                modal.style.display = 'flex';
+            } else {
+                console.error('loginModal 元素未找到');
+            }
+        }
+
+        // 隐藏登录模态框
+        function hideLoginModal() {
+            var modal = document.getElementById('loginModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+            // 清空表单
+            var form = document.getElementById('loginForm');
+            if (form) {
+                form.reset();
+            }
+        }
+
+        // 登录处理
+        function handleLogin(event) {
+            event.preventDefault();
+            var usernameInput = document.getElementById('username').value;
+            var password = document.getElementById('password').value;
+
+            fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: usernameInput,
+                    password: password
+                })
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.code === 200 && data.data) {
+                    userId = data.data.userId.toString();
+                    username = data.data.username || usernameInput;
+                    sessionStorage.setItem('userId', userId);
+                    sessionStorage.setItem('username', username);
+                    
+                    hideLoginModal();
+                    updateLoginUI(true);
+                    document.getElementById('userIdInput').value = userId;
+                    document.getElementById('autoLoadSection').style.display = 'block';
+                    document.getElementById('manualLoadSection').style.display = 'none';
+                    loadProgress();
+                } else {
+                    alert(data.message || '登录失败');
+                }
+            })
+            .catch(function(error) {
+                alert(error.message || '登录失败，请重试');
+            });
+        }
+
+        // 登出处理
+        function handleLogout() {
+            if (confirm('确定要登出吗？')) {
+                sessionStorage.removeItem('userId');
+                sessionStorage.removeItem('username');
+                userId = null;
+                username = null;
+                updateLoginUI(false);
+                document.getElementById('autoLoadSection').style.display = 'none';
+                document.getElementById('manualLoadSection').style.display = 'block';
+                document.getElementById('userIdInput').value = '';
+                document.getElementById('progressTree').innerHTML = '<p class="text-gray-500 text-center">请先登录或输入用户ID并点击"加载进度"</p>';
+            }
+        }
+
+        // 加载进度树
+        function loadProgress() {
+            var currentUserId = userId || document.getElementById('userIdInput').value;
+            if (!currentUserId) {
+                alert('请先登录或输入用户ID');
                 return;
             }
 
-            const container = document.getElementById('tableContainer');
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600 mb-4"></div>
-                    <p class="text-gray-600 text-lg">加载中...</p>
-                </div>
-            `;
-
-            try {
-                const response = await fetch(`${API_BASE}/api/interview/knowledge-tree?userId=${userId}`, {
-                    headers: {
-                        'X-Token': TOKEN
-                    }
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText || '获取知识点树失败');
+            fetch('/api/v1/progress/tree?userId=' + currentUserId, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'userId': currentUserId
+                },
+                body: JSON.stringify({
+                    userId: parseInt(currentUserId)
+                })
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.code === 200 && data.data) {
+                    renderProgressTree(data.data);
+                } else {
+                    alert(data.message || '加载进度失败');
                 }
-
-                const tree = await response.json();
-                displayTable(tree);
-            } catch (error) {
-                console.error('加载知识点树失败:', error);
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">❌</div>
-                        <p class="text-red-600 text-xl">加载失败: ${error.message}</p>
-                    </div>
-                `;
-            }
+            })
+            .catch(function(error) {
+                alert(error.message || '加载进度失败');
+            });
         }
 
-        // 存储节点数据用于展开/折叠
-        let nodeMap = new Map();
-
-        // 显示表格
-        function displayTable(tree) {
-            const container = document.getElementById('tableContainer');
-            nodeMap.clear();
-            
-            if (!tree || tree.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">📭</div>
-                        <p class="text-gray-600 text-xl">暂无知识点数据</p>
-                    </div>
-                `;
+        // 渲染进度树
+        function renderProgressTree(nodes) {
+            var container = document.getElementById('progressTree');
+            if (!nodes || nodes.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center">暂无进度数据</p>';
                 return;
             }
 
-            let html = `
-                <div class="overflow-x-auto">
-                    <table class="knowledge-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 40%">知识点名称</th>
-                                <th style="width: 15%">掌握度分数</th>
-                                <th style="width: 30%">掌握度进度</th>
-                                <th style="width: 15%">掌握状态</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-
-            // 递归渲染节点
-            tree.forEach((node, index) => {
-                html += renderTableRow(node, 0, index, '');
+            container.innerHTML = '';
+            nodes.forEach(function(node) {
+                var nodeElement = createNodeElement(node);
+                container.appendChild(nodeElement);
             });
-
-            html += `
-                        </tbody>
-                    </table>
-                </div>
-            `;
-
-            container.innerHTML = html;
         }
 
-        // 渲染表格行
-        function renderTableRow(node, level, index, parentPath) {
-            const hasChildren = node.children && node.children.length > 0;
-            const nodeId = node.id;
-            const rowId = `row-${nodeId}`;
-            const mastery = node.mastery || 0;
-            const masteryConfig = getMasteryConfig(mastery);
-            const indentClass = level > 0 ? `indent-${Math.min(level, 3)}` : '';
-            const isRoot = level === 0;
-
-            // 存储节点信息
-            nodeMap.set(nodeId, {
-                id: nodeId,
-                children: node.children || [],
-                level: level
-            });
-
-            let html = `
-                <tr class="${isRoot ? 'root-row' : 'child-row'}" id="${rowId}" data-node-id="${nodeId}" data-level="${level}" data-parent-id="${node.parentId || ''}" style="display: ${level === 0 ? 'table-row' : 'none'}">
-                    <td class="${indentClass}">
-                        <div class="flex items-center">
-                            ${hasChildren ? `
-                                <span class="toggle-icon" onclick="toggleRow(${nodeId})" id="icon-${nodeId}">▶</span>
-                            ` : '<span class="toggle-icon" style="visibility: hidden;">▶</span>'}
-                            <span class="knowledge-name ${isRoot ? 'root' : ''}">${escapeHtml(node.name)}</span>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="mastery-score ${masteryConfig.textColor}">${mastery}</span>
-                        <span class="text-gray-500 text-sm">/ 100</span>
-                    </td>
-                    <td>
-                        <div class="mastery-progress-container">
-                            <div class="mastery-progress-bar">
-                                <div class="mastery-progress-fill ${masteryConfig.progressClass}" 
-                                     style="width: ${mastery}%">
-                                    ${mastery > 10 ? mastery + '%' : ''}
-                                </div>
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="mastery-badge ${masteryConfig.badgeClass}">
-                            ${masteryConfig.label}
-                        </span>
-                    </td>
-                </tr>
-            `;
-
-            // 递归渲染子节点
-            if (hasChildren) {
-                node.children.forEach((child, idx) => {
-                    html += renderTableRow(child, level + 1, idx, parentPath + '-' + nodeId);
-                });
-            }
-
-            return html;
-        }
-
-        // 切换行展开/收起
-        function toggleRow(nodeId) {
-            const icon = document.getElementById(`icon-${nodeId}`);
-            const nodeInfo = nodeMap.get(nodeId);
+        // 创建节点元素（递归）
+        function createNodeElement(node) {
+            var proficiency = node.proficiency ? parseFloat(node.proficiency) : 0;
+            var proficiencyPercent = proficiency.toFixed(2) + '%';
             
-            if (!icon || !nodeInfo) return;
-
-            const isExpanded = icon.classList.contains('expanded');
-
-            if (isExpanded) {
-                // 收起：隐藏所有子节点
-                icon.classList.remove('expanded');
-                icon.textContent = '▶';
-                hideChildren(nodeId);
-            } else {
-                // 展开：显示直接子节点
-                icon.classList.add('expanded');
-                icon.textContent = '▼';
-                showChildren(nodeId);
+            var details = document.createElement('details');
+            details.className = 'mb-2';
+            
+            var summary = document.createElement('summary');
+            summary.className = 'cursor-pointer font-semibold p-2 hover:bg-gray-100 rounded';
+            
+            // 节点标题和掌握度
+            var titleDiv = document.createElement('div');
+            titleDiv.className = 'flex items-center justify-between';
+            
+            var nameSpan = document.createElement('span');
+            nameSpan.textContent = node.name || node.id;
+            nameSpan.className = 'mr-4';
+            
+            var proficiencySpan = document.createElement('span');
+            proficiencySpan.textContent = proficiencyPercent;
+            proficiencySpan.className = 'text-blue-600 font-bold mr-4';
+            
+            titleDiv.appendChild(nameSpan);
+            titleDiv.appendChild(proficiencySpan);
+            summary.appendChild(titleDiv);
+            
+            // 进度条
+            var progressBarContainer = document.createElement('div');
+            progressBarContainer.className = 'w-full bg-gray-200 rounded-full h-2.5 mt-2';
+            
+            var progressBar = document.createElement('div');
+            progressBar.className = 'bg-green-500 h-2.5 rounded-full';
+            progressBar.style.width = proficiency + '%';
+            
+            progressBarContainer.appendChild(progressBar);
+            summary.appendChild(progressBarContainer);
+            
+            details.appendChild(summary);
+            
+            // 子节点
+            if (node.children && node.children.length > 0) {
+                var childrenDiv = document.createElement('div');
+                childrenDiv.className = 'ml-4 mt-2';
+                
+                node.children.forEach(function(child) {
+                    var childElement = createNodeElement(child);
+                    childrenDiv.appendChild(childElement);
+                });
+                
+                details.appendChild(childrenDiv);
             }
-        }
-
-        // 显示子节点
-        function showChildren(parentId) {
-            const nodeInfo = nodeMap.get(parentId);
-            if (!nodeInfo || !nodeInfo.children) return;
-
-            nodeInfo.children.forEach(child => {
-                const row = document.getElementById(`row-${child.id}`);
-                if (row) {
-                    row.style.display = 'table-row';
-                    row.classList.add('expanded');
-                }
-            });
-        }
-
-        // 隐藏子节点（递归）
-        function hideChildren(parentId) {
-            const nodeInfo = nodeMap.get(parentId);
-            if (!nodeInfo || !nodeInfo.children) return;
-
-            nodeInfo.children.forEach(child => {
-                const row = document.getElementById(`row-${child.id}`);
-                const icon = document.getElementById(`icon-${child.id}`);
-                
-                if (row) {
-                    row.style.display = 'none';
-                    row.classList.remove('expanded');
-                }
-                
-                // 如果子节点是展开的，先收起它的图标
-                if (icon && icon.classList.contains('expanded')) {
-                    icon.classList.remove('expanded');
-                    icon.textContent = '▶';
-                }
-                
-                // 递归隐藏子节点的子节点
-                hideChildren(child.id);
-            });
-        }
-
-        // 获取掌握度配置
-        function getMasteryConfig(mastery) {
-            if (mastery >= 90) {
-                return {
-                    label: '卓越',
-                    badgeClass: 'bg-green-500 text-white',
-                    progressClass: 'bg-gradient-to-r from-green-400 to-green-600',
-                    textColor: 'text-green-600'
-                };
-            } else if (mastery >= 80) {
-                return {
-                    label: '优秀',
-                    badgeClass: 'bg-green-400 text-white',
-                    progressClass: 'bg-gradient-to-r from-green-300 to-green-500',
-                    textColor: 'text-green-600'
-                };
-            } else if (mastery >= 70) {
-                return {
-                    label: '良好',
-                    badgeClass: 'bg-blue-400 text-white',
-                    progressClass: 'bg-gradient-to-r from-blue-300 to-blue-500',
-                    textColor: 'text-blue-600'
-                };
-            } else if (mastery >= 60) {
-                return {
-                    label: '及格',
-                    badgeClass: 'bg-yellow-400 text-white',
-                    progressClass: 'bg-gradient-to-r from-yellow-300 to-yellow-500',
-                    textColor: 'text-yellow-600'
-                };
-            } else if (mastery >= 40) {
-                return {
-                    label: '一般',
-                    badgeClass: 'bg-orange-400 text-white',
-                    progressClass: 'bg-gradient-to-r from-orange-300 to-orange-500',
-                    textColor: 'text-orange-600'
-                };
-            } else {
-                return {
-                    label: '需加强',
-                    badgeClass: 'bg-red-400 text-white',
-                    progressClass: 'bg-gradient-to-r from-red-300 to-red-500',
-                    textColor: 'text-red-600'
-                };
-            }
-        }
-
-        // HTML转义函数
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+            
+            return details;
         }
     </script>
 </body>
 </html>
+

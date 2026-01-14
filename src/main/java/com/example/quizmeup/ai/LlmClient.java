@@ -2,16 +2,19 @@ package com.example.quizmeup.ai;
 
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 /**
- * 对 LangChain4j ChatModel 的简单封装。
+ * LLM 客户端实现类
+ * 使用 HTTP 调用 OpenAI API（或其他兼容的 LLM API）
  */
-@Component
+@Service
 @RequiredArgsConstructor
 public class LlmClient {
 
+
     private final ChatLanguageModel chatModel;
+
 
     public String call(String prompt) {
         return chatModel.generate(prompt);
