@@ -18,4 +18,19 @@ public interface KnowledgeMapper extends BaseMapper<Knowledge> {
      * @return 叶节点知识点列表
      */
     List<Knowledge> selectAllLeafNodes();
+
+    /**
+     * 查询所有一级知识点（根节点）
+     *
+     * @return 一级知识点列表
+     */
+    List<Knowledge> selectRootNodes();
+
+    /**
+     * 根据根节点ID查询该根节点下的所有叶节点
+     *
+     * @param rootId 根节点ID
+     * @return 叶节点列表
+     */
+    List<Knowledge> selectLeafNodesByRootId(@Param("rootId") String rootId);
 }

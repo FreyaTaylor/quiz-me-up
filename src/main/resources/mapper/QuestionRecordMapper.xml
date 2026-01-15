@@ -28,6 +28,26 @@
         ORDER BY qr.submitted_at DESC
     </select>
 
+    <!-- 查询用户每个题目的最近一次得分 -->
+    <select id="selectLatestScoresByUserIdAndQuestionIds" resultType="com.example.quizmeup.entity.QuestionRecord">
+        SELECT qr1.question_id,
+               qr1.score,
+               qr1.submitted_at
+        FROM lc_question_record qr1
+        INNER JOIN (
+            SELECT question_id, MAX(submitted_at) as max_submitted_at
+            FROM lc_question_record
+            WHERE user_id = #{userId}
+              AND question_id IN
+            <foreach collection="questionIds" item="questionId" open="(" separator="," close=")">
+                #{questionId}
+            </foreach>
+            GROUP BY question_id
+        ) qr2 ON qr1.question_id = qr2.question_id
+             AND qr1.submitted_at = qr2.max_submitted_at
+        WHERE qr1.user_id = #{userId}
+    </select>
+
     <insert id="insert" parameterType="com.example.quizmeup.entity.QuestionRecord"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO lc_question_record (user_id, question_id, score)

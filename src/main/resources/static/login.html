@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - Quiz Me Up</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .login-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Quiz Me Up</h1>
+            <p class="text-gray-600">请登录您的账户</p>
+        </div>
+        
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="username">用户名</label>
+                <input class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" 
+                       id="username" type="text" placeholder="请输入用户名" required autofocus>
+            </div>
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="password">密码</label>
+                <input class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500" 
+                       id="password" type="password" placeholder="请输入密码" required>
+            </div>
+            <div id="errorMessage" class="mb-4 text-red-600 text-sm" style="display: none;"></div>
+            <button id="loginBtn" type="submit" 
+                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded w-full focus:outline-none focus:shadow-outline transition-colors">
+                登录
+            </button>
+        </form>
+    </div>
+
+    <script>
+        // 检查是否已登录，如果已登录则根据角色跳转
+        window.onload = function() {
+            var userId = sessionStorage.getItem('userId');
+            var userRole = sessionStorage.getItem('userRole');
+            
+            if (userId) {
+                // 已登录，根据角色跳转
+                if (userRole === 'ADMIN') {
+                    window.location.href = 'admin.html';
+                } else {
+                    window.location.href = 'learning.html';
+                }
+            }
+        };
+
+        // 登录处理
+        function handleLogin(event) {
+            event.preventDefault();
+            
+            var username = document.getElementById('username').value;
+            var password = document.getElementById('password').value;
+            var errorMessage = document.getElementById('errorMessage');
+            var loginBtn = document.getElementById('loginBtn');
+            
+            // 隐藏错误信息
+            errorMessage.style.display = 'none';
+            errorMessage.textContent = '';
+            
+            // 显示加载状态
+            loginBtn.disabled = true;
+            loginBtn.textContent = '登录中...';
+
+            fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                })
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.code === 200 && data.data) {
+                    // 登录成功，保存用户信息
+                    var userId = data.data.userId.toString();
+                    var username = data.data.username;
+                    var userRole = data.data.role || null;
+                    
+                    sessionStorage.setItem('userId', userId);
+                    sessionStorage.setItem('username', username);
+                    sessionStorage.setItem('userRole', userRole);
+                    
+                    // 根据角色跳转
+                    if (userRole === 'ADMIN') {
+                        window.location.href = 'admin.html';
+                    } else {
+                        window.location.href = 'learning.html';
+                    }
+                } else {
+                    // 登录失败，显示错误信息
+                    errorMessage.textContent = data.message || '登录失败，请检查用户名和密码';
+                    errorMessage.style.display = 'block';
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = '登录';
+                }
+            })
+            .catch(function(error) {
+                errorMessage.textContent = '登录失败，请重试';
+                errorMessage.style.display = 'block';
+                loginBtn.disabled = false;
+                loginBtn.textContent = '登录';
+            });
+        }
+    </script>
+</body>
+</html>

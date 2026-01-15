@@ -1,11 +1,10 @@
 package com.example.quizmeup.service;
 
-import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.quizmeup.ai.LlmClient;
 import com.example.quizmeup.ai.PromptService;
 import com.example.quizmeup.common.AiResponse;
+import com.example.quizmeup.dto.QuestionWithScore;
 import com.example.quizmeup.dto.SubmitAnswerResponse;
 import com.example.quizmeup.entity.Knowledge;
 import com.example.quizmeup.entity.Question;
@@ -29,8 +28,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.LinkedHashMap;
 
 /**
  * 学习服务类
@@ -64,11 +61,11 @@ public class LearningService {
      *
      * @param userId      用户ID
      * @param knowledgeId 知识点ID
-     * @return 题目信息
+     * @return 题目信息（包含最近一次得分）
      * @throws IllegalArgumentException 如果知识点不存在或不是叶节点
      */
     @Transactional
-    public List<Question> startLearning(Long userId, String knowledgeId) {
+    public List<QuestionWithScore> startLearning(Long userId, String knowledgeId) {
         // 1. 校验知识点是否存在且为叶节点
         Knowledge knowledge = knowledgeMapper.selectById(knowledgeId);
         if (knowledge == null) {
@@ -89,10 +86,34 @@ public class LearningService {
         if (questions.isEmpty()) {
             questions = generateQuestion(knowledge);
             questionMapper.insert(questions);
-            return questions;
         }
 
-        return questions;
+        // 4. 查询每个题目的最近一次得分
+        List<String> questionIds = new ArrayList<>();
+        for (Question question : questions) {
+            questionIds.add(question.getId());
+        }
+
+        List<QuestionRecord> latestRecords = questionRecordMapper.selectLatestScoresByUserIdAndQuestionIds(userId, questionIds);
+        
+        // 构建题目ID到得分的映射
+        Map<String, BigDecimal> scoreMap = new HashMap<>();
+        for (QuestionRecord record : latestRecords) {
+            if (record.getQuestionId() != null) {
+                BigDecimal score = record.getScore() != null ? record.getScore() : BigDecimal.ZERO;
+                // 如果已存在，保留第一个（更早的记录）
+                scoreMap.putIfAbsent(record.getQuestionId(), score);
+            }
+        }
+
+        // 5. 构建返回结果
+        List<QuestionWithScore> result = new ArrayList<>();
+        for (Question question : questions) {
+            BigDecimal lastScore = scoreMap.getOrDefault(question.getId(), BigDecimal.ZERO);
+            result.add(new QuestionWithScore(question, lastScore));
+        }
+
+        return result;
     }
 
     /**
@@ -103,7 +124,9 @@ public class LearningService {
      */
     private List<Question> generateQuestion(Knowledge knowledge) {
         Map<String, Object> params = new HashMap<>();
-        params.put("topic", knowledge.getName());
+        // 获取知识点的完整路径（包含所有父节点），用 "-" 拼接
+        String topic = buildKnowledgePath(knowledge);
+        params.put("topic", topic);
         String prompt = promptService.render("INTERVIEW_Q_GEN", params);
 
         String llmResponse = llmClient.call(prompt);
@@ -138,6 +161,29 @@ public class LearningService {
         return questions;
     }
 
+    /**
+     * 构建知识点的完整路径（包含所有父节点），用 "-" 拼接
+     * 例如：Java - Java 并发 - 线程池
+     *
+     * @param knowledge 知识点
+     * @return 完整路径字符串
+     */
+    private String buildKnowledgePath(Knowledge knowledge) {
+        List<String> pathNames = new ArrayList<>();
+        Knowledge current = knowledge;
+        
+        // 从当前节点开始，向上遍历所有父节点
+        while (current != null) {
+            pathNames.add(0, current.getName()); // 插入到列表开头，保持从根到叶的顺序
+            if (current.getParentId() == null || current.getParentId().isEmpty()) {
+                break;
+            }
+            current = knowledgeMapper.selectById(current.getParentId());
+        }
+        
+        // 用 "-" 拼接所有节点名称
+        return String.join(" - ", pathNames);
+    }
 
     /**
      * 提交答案并评分
@@ -189,33 +235,36 @@ public class LearningService {
     /**
      * 更新用户掌握度
      * proficiency = 该知识点下所有题目的平均分（考虑所有历史答题记录）
+     * 
+     * 使用悲观锁（SELECT FOR UPDATE）解决并发更新问题：
+     * 1. 锁定掌握度记录，防止其他事务同时更新
+     * 2. 重新查询所有答题记录（确保获取最新数据）
+     * 3. 计算平均分并更新
+     * 
+     * 这种方法可以避免"丢失更新"（Lost Update）问题：
+     * - 问题：两个请求同时提交答案时，可能都基于旧的答题记录计算平均分
+     * - 解决：使用数据库锁确保同一时间只有一个事务能更新掌握度
      *
      * @param userId      用户ID
      * @param knowledgeId 知识点ID
      */
     private void updateUserMastery(Long userId, String knowledgeId) {
-        // 查询该知识点下所有题目的最新答题记录
+        // 步骤1：使用 SELECT FOR UPDATE 锁定掌握度记录（如果存在）
+        // 这样可以防止其他并发事务同时更新同一条记录
+        // 注意：即使记录不存在，FOR UPDATE 也会在插入时生效（通过后续的 INSERT ... ON DUPLICATE KEY UPDATE）
+        @SuppressWarnings("unused")
+        UserMastery existingMastery = userMasteryMapper.selectByUserIdAndKnowledgeIdForUpdate(userId, knowledgeId);
+        
+        // 步骤2：在锁定期间，重新查询该知识点下所有题目的最新答题记录
+        // 这样可以确保获取到所有已提交的答题记录（包括当前事务刚插入的记录）
         List<QuestionRecord> records = questionRecordMapper.selectByUserIdAndKnowledgeId(userId, knowledgeId);
-        List<QuestionRecord> latestRecords = records.stream()
-                .collect(Collectors.toMap(
-                        QuestionRecord::getQuestionId,           // key：questionId
-                        record -> record,                        // value：当前记录
-                        (QuestionRecord existing, QuestionRecord replacement) ->               // 合并函数：保留 submittedAt 更晚的
-                                existing.getSubmittedAt() == null ? replacement :
-                                        replacement.getSubmittedAt() == null ? existing :
-                                                existing.getSubmittedAt().compareTo(replacement.getSubmittedAt()) >= 0 ? existing : replacement,
-                        LinkedHashMap::new                       // 保持插入顺序（可选）
-                ))
-                .values()
-                .stream()
-                .collect(Collectors.toList());
 
         if (records.isEmpty()) {
             // 没有答题记录，不更新掌握度
             return;
         }
 
-
+        // 步骤3：查询该知识点下的所有题目数量
         List<Question> questions = questionMapper.selectList(
                 new LambdaQueryWrapper<Question>()
                         .eq(Question::getKnowledgeId, knowledgeId)
@@ -223,31 +272,28 @@ public class LearningService {
         );
         int questionCount = questions.size();
 
+        if (questionCount == 0) {
+            // 没有题目，不更新掌握度
+            return;
+        }
 
-
-        // 计算平均分（除以整体题量）
+        // 步骤4：计算平均分（除以整体题量）
         double sumScore = records.stream()
                 .mapToDouble(record -> record.getScore() != null ? record.getScore().doubleValue() : 0.0)
                 .sum();
 
-        double avgScore = sumScore/questionCount;
+        double avgScore = sumScore / questionCount;
 
         BigDecimal proficiency = BigDecimal.valueOf(avgScore)
                 .setScale(2, RoundingMode.HALF_UP);
 
-        // 查询或创建用户掌握度记录
-        UserMastery mastery = userMasteryMapper.selectByUserIdAndKnowledgeId(userId, knowledgeId);
-        if (mastery == null) {
-            mastery = new UserMastery();
-            mastery.setUserId(userId);
-            mastery.setKnowledgeId(knowledgeId);
-            mastery.setProficiency(proficiency);
-            mastery.setUpdatedAt(LocalDateTime.now());
-            userMasteryMapper.insert(mastery);
-        } else {
-            mastery.setProficiency(proficiency);
-            mastery.setUpdatedAt(LocalDateTime.now());
-            userMasteryMapper.updateProficiency(mastery);
-        }
+        // 步骤5：使用 INSERT ... ON DUPLICATE KEY UPDATE 原子性地插入或更新
+        // 由于已经加锁，这里可以安全地更新
+        UserMastery mastery = new UserMastery();
+        mastery.setUserId(userId);
+        mastery.setKnowledgeId(knowledgeId);
+        mastery.setProficiency(proficiency);
+        mastery.setUpdatedAt(LocalDateTime.now());
+        userMasteryMapper.insert(mastery);
     }
 }

@@ -1,11 +1,10 @@
 package com.example.quizmeup.controller;
 
 import com.example.quizmeup.common.Result;
+import com.example.quizmeup.dto.QuestionWithScore;
 import com.example.quizmeup.dto.StartLearningRequest;
-import com.example.quizmeup.dto.StartLearningResponse;
 import com.example.quizmeup.dto.SubmitAnswerRequest;
 import com.example.quizmeup.dto.SubmitAnswerResponse;
-import com.example.quizmeup.entity.Question;
 import com.example.quizmeup.service.LearningService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.slf4j.Logger;
@@ -35,11 +34,11 @@ public class LearningController {
      * 根据知识点ID获取或生成题目
      *
      * @param request 请求体，包含 userId 和 knowledgeId
-     * @return 题目信息
+     * @return 题目信息（包含最近一次得分）
      */
     @PostMapping("/start")
-    public Result<List<Question>> startLearning(@RequestBody StartLearningRequest request) {
-        List<Question> questions = learningService.startLearning(request.getUserId(), request.getKnowledgeId());
+    public Result<List<QuestionWithScore>> startLearning(@RequestBody StartLearningRequest request) {
+        List<QuestionWithScore> questions = learningService.startLearning(request.getUserId(), request.getKnowledgeId());
         return Result.success(questions);
 
     }

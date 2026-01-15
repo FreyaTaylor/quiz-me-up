@@ -7,6 +7,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Duration;
+
 @Configuration
 public class LlmConfig {
 
@@ -26,8 +28,9 @@ public class LlmConfig {
                 .baseUrl(apiUrl)
                 .apiKey(apiKey)
                 .modelName(model)
-                .maxTokens(2048)
+                .maxTokens(8192)
                 .temperature(0.7)
+                .timeout(Duration.ofSeconds(240))
                 .build();
     }
 }

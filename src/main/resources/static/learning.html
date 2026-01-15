@@ -5,8 +5,100 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>学习 - Quiz Me Up</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        
+        .text-gray-700, .text-gray-800 {
+            color: #333 !important;
+        }
+        
+        .content-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            padding: 24px;
+        }
+        
+        .tab-item {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 8px;
+            margin-right: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid #e3f2fd;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .tab-item:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .tab-item.active {
+            background-color: #1a73e8;
+            color: white;
+            border-color: #1a73e8;
+        }
+        
+        .tree-node {
+            padding-left: 20px;
+        }
+        
+        .tree-icon {
+            display: inline-block;
+            margin-right: 6px;
+            color: #666;
+            font-size: 10px;
+        }
+        
+        .tree-leaf-icon {
+            color: #1a73e8;
+            font-size: 8px;
+        }
+        
+        .star-icon {
+            color: #FFD700;
+            font-size: 12px;
+            margin-right: 2px;
+        }
+        
+        .start-learning-btn {
+            width: 120px;
+            height: 40px;
+            background-color: #1a73e8;
+            color: white;
+            border-radius: 8px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .start-learning-btn:hover:not(:disabled) {
+            background-color: #0d5cb6;
+        }
+        
+        .start-learning-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        
+        h1, h2, h3 {
+            font-weight: bold;
+        }
+    </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="min-h-screen">
     <!-- 顶部导航栏 -->
     <nav class="bg-white shadow-md">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -17,6 +109,7 @@
                     <div class="flex space-x-2">
                         <a href="learning.html" class="px-3 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-700">学习</a>
                         <a href="progress.html" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">进度</a>
+                        <a id="adminLink" href="admin.html" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100" style="display: none;">管理</a>
                     </div>
                 </div>
                 
@@ -64,49 +157,108 @@
 
     <!-- 学习内容 -->
     <div id="learningSection" class="max-w-4xl mx-auto mt-10 p-6">
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h1 class="text-3xl font-bold mb-6">学习</h1>
+        <div class="content-card mb-6">
+            <h1 class="text-3xl font-bold mb-6" style="color: #333;">学习</h1>
             
-            <!-- 知识点选择 -->
+            <!-- 一级知识点选择（Tabs风格） -->
             <div class="mb-6">
-                <label class="block text-gray-700 text-sm font-bold mb-2" for="knowledgeSelect">选择知识点</label>
-                <select id="knowledgeSelect" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                    <option value="">请选择知识点...</option>
-                </select>
+                <label class="block text-sm font-bold mb-3" style="color: #333;">选择知识领域</label>
+                <div id="rootNodesContainer" class="flex flex-wrap">
+                    <p class="text-gray-500">加载中...</p>
+                </div>
             </div>
-            <button onclick="startLearning()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+            
+            <!-- 知识点选择（树状结构） -->
+            <div class="mb-6" id="leafNodesSection" style="display: none;">
+                <label class="block text-sm font-bold mb-3" style="color: #333;">选择知识点（仅叶节点可选）</label>
+                <div id="knowledgeTree" class="border rounded-lg p-4 bg-gray-50 max-h-96 overflow-y-auto" style="border-color: #e0e0e0; border-radius: 8px;">
+                    <p style="color: #666; text-align: center;">加载中...</p>
+                </div>
+                <input type="hidden" id="selectedKnowledgeId" value="">
+            </div>
+            <button onclick="startLearning()" class="start-learning-btn" id="startLearningBtn" style="display: none;">
                 开始学习
             </button>
         </div>
 
         <!-- 题目列表 -->
-        <div id="questionsListCard" class="bg-white rounded-lg shadow-md p-6 mb-6" style="display: none;">
-            <h2 class="text-2xl font-bold mb-4">题目列表 (<span id="questionCount">0</span>)</h2>
+        <div id="questionsListCard" class="content-card mb-6" style="display: none;">
+            <h2 class="text-2xl font-bold mb-4" style="color: #333;">题目列表 (<span id="questionCount">0</span>)</h2>
             <div id="questionsList" class="space-y-6"></div>
         </div>
     </div>
 
     <script>
+        console.log('脚本开始执行...');
+        
         // 全局变量
         var userId = null;
         var username = null;
+        
+        // 全局变量：选中的根节点ID
+        var selectedRootId = null;
 
         // 页面加载时检查登录状态
         window.onload = function() {
+            console.log('window.onload 触发');
             checkLoginStatus();
         };
+        
+        // 如果 DOM 已经加载完成，立即执行
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            console.log('DOM 已就绪，立即执行');
+            setTimeout(function() {
+                checkLoginStatus();
+            }, 100);
+        }
 
         // 检查登录状态
         function checkLoginStatus() {
+            console.log('checkLoginStatus 被调用');
             userId = sessionStorage.getItem('userId');
             username = sessionStorage.getItem('username');
+            var userRole = sessionStorage.getItem('userRole');
+            
+            console.log('当前 userId:', userId);
             
             if (userId) {
                 updateLoginUI(true);
-                loadLeafNodes();
+                // 根据角色显示/隐藏管理页面链接
+                var adminLink = document.getElementById('adminLink');
+                if (adminLink) {
+                    adminLink.style.display = (userRole === 'ADMIN') ? 'block' : 'none';
+                }
+                // 已登录，加载数据
+                loadRootNodes();
             } else {
                 updateLoginUI(false);
+                var adminLink = document.getElementById('adminLink');
+                if (adminLink) {
+                    adminLink.style.display = 'none';
+                }
+                // 未登录，显示登录弹框
+                showLoginModal();
+                // 显示提示信息
+                showLoginRequiredMessage();
             }
+        }
+
+        // 显示需要登录的提示信息
+        function showLoginRequiredMessage() {
+            var container = document.getElementById('rootNodesContainer');
+            if (container) {
+                container.innerHTML = '<div class="text-center p-4 bg-yellow-50 border border-yellow-200 rounded" style="border-radius: 8px;"><p style="color: #856404;">请先登录以使用所有功能</p></div>';
+            }
+        }
+
+        // 统一的登录检查函数
+        function requireLogin() {
+            if (!userId) {
+                alert('请先登录');
+                showLoginModal();
+                return false;
+            }
+            return true;
         }
 
         // 更新登录UI
@@ -162,12 +314,19 @@
                 if (data.code === 200 && data.data) {
                     userId = data.data.userId.toString();
                     username = data.data.username || usernameInput;
+                    var userRole = data.data.role || null;
                     sessionStorage.setItem('userId', userId);
                     sessionStorage.setItem('username', username);
+                    sessionStorage.setItem('userRole', userRole);
                     
                     hideLoginModal();
                     updateLoginUI(true);
-                    loadLeafNodes();
+                    // 根据角色显示/隐藏管理页面链接
+                    var adminLink = document.getElementById('adminLink');
+                    if (adminLink) {
+                        adminLink.style.display = (userRole === 'ADMIN') ? 'block' : 'none';
+                    }
+                    loadRootNodes();
                 } else {
                     alert(data.message || '登录失败');
                 }
@@ -177,61 +336,412 @@
             });
         }
 
+        // 全局变量：选中的根节点ID
+        var selectedRootId = null;
+
         // 登出处理
         function handleLogout() {
             if (confirm('确定要登出吗？')) {
-                sessionStorage.removeItem('userId');
-                sessionStorage.removeItem('username');
-                userId = null;
-                username = null;
-                updateLoginUI(false);
-                // 清空页面内容
-                document.getElementById('knowledgeSelect').innerHTML = '<option value="">请选择知识点...</option>';
-                document.getElementById('questionsListCard').style.display = 'none';
+                sessionStorage.clear();
+                // 重定向到登录页面
+                window.location.href = 'login.html';
             }
         }
 
-        // 加载叶节点列表
-        function loadLeafNodes() {
-            if (!userId) {
-                alert('请先登录');
+        // 加载一级知识点（根节点）
+        function loadRootNodes() {
+            if (!requireLogin()) {
                 return;
             }
+            
+            console.log('开始加载一级知识点...');
+            
+            var url = '/api/v1/knowledge/root-nodes?userId=' + userId;
+            var headers = {
+                'Content-Type': 'application/json',
+                'userId': userId
+            };
+            
+            console.log('请求 URL:', url);
+            
+            fetch(url, {
+                headers: headers
+            })
+            .then(function(response) {
+                console.log('响应状态:', response.status);
+                return response.json();
+            })
+            .then(function(data) {
+                console.log('响应数据:', data);
+                if (data.code === 200 && data.data) {
+                    displayRootNodes(data.data);
+                } else {
+                    console.error('加载失败:', data.message);
+                    var container = document.getElementById('rootNodesContainer');
+                    if (container) {
+                        container.innerHTML = '<p class="text-red-500 col-span-full">加载失败: ' + (data.message || '未知错误') + '</p>';
+                    }
+                }
+            })
+            .catch(function(error) {
+                console.error('请求错误:', error);
+                var container = document.getElementById('rootNodesContainer');
+                if (container) {
+                    container.innerHTML = '<p class="text-red-500 col-span-full">加载失败: ' + (error.message || '网络错误') + '</p>';
+                }
+            });
+        }
+
+        // 显示一级知识点矩形卡片
+        function displayRootNodes(rootNodes) {
+            console.log('显示一级知识点，数量:', rootNodes ? rootNodes.length : 0);
+            
+            var container = document.getElementById('rootNodesContainer');
+            if (!container) {
+                console.error('找不到 rootNodesContainer 元素');
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            if (!rootNodes || rootNodes.length === 0) {
+                container.innerHTML = '<p style="color: #666;">暂无知识领域，请先在进度页面初始化知识点</p>';
+                return;
+            }
+            
+            rootNodes.forEach(function(node) {
+                var tab = document.createElement('div');
+                tab.className = 'tab-item';
+                tab.dataset.rootId = node.id;
+                tab.textContent = node.name;
+                tab.onclick = function() {
+                    selectRootNode(node.id, node.name);
+                };
+                
+                container.appendChild(tab);
+            });
+            
+            console.log('一级知识点卡片已渲染');
+        }
+
+        // 选中根节点
+        function selectRootNode(rootId, rootName) {
+            if (!requireLogin()) {
+                return;
+            }
+            
+            selectedRootId = rootId;
+            
+            // 更新 Tabs 选中状态
+            var tabs = document.querySelectorAll('#rootNodesContainer > .tab-item');
+            tabs.forEach(function(tab) {
+                if (tab.dataset.rootId === rootId) {
+                    tab.classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                }
+            });
+            
+            // 加载该根节点下的叶节点
+            loadLeafNodesByRoot(rootId);
+            
+            // 显示叶节点选择区域
+            document.getElementById('leafNodesSection').style.display = 'block';
+            document.getElementById('startLearningBtn').style.display = 'block';
+        }
+
+        // 全局变量：选中的知识点ID
+        var selectedKnowledgeId = null;
+
+        // 根据根节点ID加载知识树
+        function loadLeafNodesByRoot(rootId) {
+            if (!rootId) {
+                return;
+            }
+            
+            if (!requireLogin()) {
+                return;
+            }
+            
+            console.log('加载知识树，rootId:', rootId);
             
             fetch('/api/v1/knowledge/leaf-nodes?userId=' + userId, {
                 headers: {
                     'userId': userId
                 }
             })
-                .then(function(response) {
-                    return response.json();
-                })
-                .then(function(data) {
-                    if (data.code === 200 && data.data) {
-                        var select = document.getElementById('knowledgeSelect');
-                        select.innerHTML = '<option value="">请选择知识点...</option>';
-                        data.data.forEach(function(knowledge) {
-                            var option = document.createElement('option');
-                            option.value = knowledge.id;
-                            option.textContent = knowledge.name;
-                            select.appendChild(option);
-                        });
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                console.log('知识树响应:', data);
+                if (data.code === 200 && data.data) {
+                    // 找到对应的根节点树
+                    var rootTree = data.data.find(function(node) {
+                        return node.id === rootId;
+                    });
+                    
+                    if (rootTree) {
+                        displayKnowledgeTree(rootTree);
                     } else {
-                        alert(data.message || '加载知识点失败');
+                        document.getElementById('knowledgeTree').innerHTML = '<p class="text-red-500">未找到对应的知识树</p>';
                     }
-                })
-                .catch(function(error) {
-                    alert(error.message || '加载知识点失败');
-                });
+                } else {
+                    alert(data.message || '加载知识树失败');
+                }
+            })
+            .catch(function(error) {
+                console.error('加载知识树失败:', error);
+                alert(error.message || '加载知识树失败');
+            });
+        }
+
+        // 显示知识树（树状结构，只有叶节点可选）
+        function displayKnowledgeTree(rootNode) {
+            var container = document.getElementById('knowledgeTree');
+            container.innerHTML = '';
+            
+            // 递归渲染树节点
+            function renderTreeNode(node, parentElement, level) {
+                level = level || 0;
+                
+                var nodeDiv = document.createElement('div');
+                nodeDiv.className = 'mb-1 tree-node';
+                if (level > 0) {
+                    nodeDiv.style.paddingLeft = (level * 20) + 'px';
+                }
+                
+                if (node.isLeaf) {
+                    // 叶节点：可点击选择
+                    nodeDiv.className += ' cursor-pointer hover:bg-blue-50 p-2 rounded';
+                    nodeDiv.setAttribute('data-knowledge-id', node.id);
+                    nodeDiv.onclick = function(e) {
+                        e.stopPropagation();
+                        selectKnowledgeNode(node.id, node.name);
+                    };
+                    
+                    var leafContent = document.createElement('div');
+                    leafContent.className = 'flex items-center gap-2';
+                    
+                    // 单选按钮样式
+                    var radio = document.createElement('span');
+                    radio.className = 'inline-block w-4 h-4 rounded-full border-2 flex-shrink-0 ' + 
+                        (selectedKnowledgeId === node.id ? 'bg-blue-500 border-blue-500' : 'border-gray-300');
+                    if (selectedKnowledgeId === node.id) {
+                        radio.innerHTML = '<span class="block w-2 h-2 bg-white rounded-full mx-auto mt-0.5"></span>';
+                    }
+                    
+                    // 节点名称
+                    var nameSpan = document.createElement('span');
+                    nameSpan.className = selectedKnowledgeId === node.id ? 'font-bold text-blue-600' : '';
+                    nameSpan.style.color = selectedKnowledgeId === node.id ? '#1a73e8' : '#333';
+                    nameSpan.textContent = node.name;
+                    
+                    // 星星（重要程度）- 统一为★，金色，区分度更大
+                    var starsDiv = document.createElement('div');
+                    starsDiv.className = 'flex items-center';
+                    starsDiv.style.gap = '6px';
+                    starsDiv.style.marginLeft = '8px';
+                    var importance = node.importance || 3;
+                    for (var i = 1; i <= 5; i++) {
+                        var star = document.createElement('span');
+                        star.className = 'star-icon';
+                        star.textContent = '★';
+                        if (i <= importance) {
+                            star.style.color = '#FFD700'; // 金色
+                            star.style.opacity = '1';
+                        } else {
+                            star.style.color = '#d1d5db'; // 灰色
+                            star.style.opacity = '0.2'; // 更透明，区分度更大
+                        }
+                        starsDiv.appendChild(star);
+                    }
+                    
+                    // 小圆环（熟练程度）
+                    var proficiencyRing = document.createElement('div');
+                    proficiencyRing.className = 'ml-auto flex-shrink-0';
+                    var proficiency = node.proficiency ? parseFloat(node.proficiency) : 0;
+                    var ringSize = 24;
+                    var strokeWidth = 3;
+                    var radius = (ringSize - strokeWidth) / 2;
+                    var circumference = 2 * Math.PI * radius;
+                    var offset = circumference - (proficiency / 100) * circumference;
+                    
+                    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svg.setAttribute('width', ringSize);
+                    svg.setAttribute('height', ringSize);
+                    svg.setAttribute('class', 'transform -rotate-90');
+                    
+                    // 背景圆环
+                    var bgCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    bgCircle.setAttribute('cx', ringSize / 2);
+                    bgCircle.setAttribute('cy', ringSize / 2);
+                    bgCircle.setAttribute('r', radius);
+                    bgCircle.setAttribute('fill', 'none');
+                    bgCircle.setAttribute('stroke', '#e5e7eb');
+                    bgCircle.setAttribute('stroke-width', strokeWidth);
+                    
+                    // 进度圆环
+                    var progressCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    progressCircle.setAttribute('cx', ringSize / 2);
+                    progressCircle.setAttribute('cy', ringSize / 2);
+                    progressCircle.setAttribute('r', radius);
+                    progressCircle.setAttribute('fill', 'none');
+                    progressCircle.setAttribute('stroke', proficiency >= 80 ? '#10b981' : proficiency >= 60 ? '#3b82f6' : proficiency >= 40 ? '#f59e0b' : '#ef4444');
+                    progressCircle.setAttribute('stroke-width', strokeWidth);
+                    progressCircle.setAttribute('stroke-dasharray', circumference);
+                    progressCircle.setAttribute('stroke-dashoffset', offset);
+                    progressCircle.setAttribute('stroke-linecap', 'round');
+                    progressCircle.style.transition = 'stroke-dashoffset 0.3s';
+                    
+                    svg.appendChild(bgCircle);
+                    svg.appendChild(progressCircle);
+                    proficiencyRing.appendChild(svg);
+                    
+                    leafContent.appendChild(radio);
+                    leafContent.appendChild(nameSpan);
+                    leafContent.appendChild(starsDiv);
+                    leafContent.appendChild(proficiencyRing);
+                    nodeDiv.appendChild(leafContent);
+                } else {
+                    // 非叶节点：可展开/折叠
+                    var details = document.createElement('details');
+                    details.className = 'cursor-pointer';
+                    details.open = level < 1; // 默认只展开到第二级（level 0 和 1）
+                    
+                    var summary = document.createElement('summary');
+                    summary.className = 'font-semibold p-1 flex items-center gap-2';
+                    summary.style.color = '#333';
+                    
+                    // 节点图标
+                    var nodeIcon = document.createElement('span');
+                    nodeIcon.className = 'tree-icon';
+                    nodeIcon.textContent = '▶';
+                    
+                    // 节点名称
+                    var nameSpan = document.createElement('span');
+                    nameSpan.textContent = node.name;
+                    
+                    // 星星（重要程度）- 统一为★，金色，区分度更大
+                    var starsDiv = document.createElement('div');
+                    starsDiv.className = 'flex items-center';
+                    starsDiv.style.gap = '6px';
+                    starsDiv.style.marginLeft = '8px';
+                    var importance = node.importance || 3;
+                    for (var i = 1; i <= 5; i++) {
+                        var star = document.createElement('span');
+                        star.className = 'star-icon';
+                        star.textContent = '★';
+                        if (i <= importance) {
+                            star.style.color = '#FFD700'; // 金色
+                            star.style.opacity = '1';
+                        } else {
+                            star.style.color = '#d1d5db'; // 灰色
+                            star.style.opacity = '0.2'; // 更透明，区分度更大
+                        }
+                        starsDiv.appendChild(star);
+                    }
+                    
+                    summary.appendChild(nodeIcon);
+                    summary.appendChild(nameSpan);
+                    summary.appendChild(starsDiv);
+                    
+                    details.appendChild(summary);
+                    
+                    // 子节点容器
+                    var childrenDiv = document.createElement('div');
+                    childrenDiv.className = 'ml-4 mt-1';
+                    
+                    if (node.children && node.children.length > 0) {
+                        node.children.forEach(function(child) {
+                            renderTreeNode(child, childrenDiv, level + 1);
+                        });
+                    }
+                    
+                    details.appendChild(childrenDiv);
+                    nodeDiv.appendChild(details);
+                }
+                
+                parentElement.appendChild(nodeDiv);
+            }
+            
+            // 从根节点开始渲染
+            renderTreeNode(rootNode, container, 0);
+        }
+
+        // 选择知识点（只有叶节点）
+        function selectKnowledgeNode(knowledgeId, knowledgeName) {
+            if (!requireLogin()) {
+                return;
+            }
+            
+            selectedKnowledgeId = knowledgeId;
+            document.getElementById('selectedKnowledgeId').value = knowledgeId;
+            
+            // 更新所有单选按钮的样式
+            var allNodes = document.querySelectorAll('#knowledgeTree [data-knowledge-id]');
+            allNodes.forEach(function(node) {
+                var nodeId = node.getAttribute('data-knowledge-id');
+                var leafContent = node.querySelector('div.flex');
+                if (!leafContent) return;
+                
+                // 获取元素：图标、单选按钮、名称
+                var children = leafContent.children;
+                var radio = null;
+                var nameSpan = null;
+                for (var i = 0; i < children.length; i++) {
+                    var child = children[i];
+                    if (child.classList.contains('inline-block') && child.classList.contains('rounded-full')) {
+                        radio = child;
+                    } else if (child.tagName === 'SPAN' && !child.classList.contains('tree-icon') && !child.classList.contains('flex')) {
+                        nameSpan = child;
+                    }
+                }
+                
+                if (nodeId === knowledgeId) {
+                    if (radio) {
+                        radio.className = 'inline-block w-4 h-4 rounded-full border-2 flex-shrink-0 bg-blue-500 border-blue-500';
+                        radio.innerHTML = '<span class="block w-2 h-2 bg-white rounded-full mx-auto mt-0.5"></span>';
+                    }
+                    if (nameSpan) {
+                        nameSpan.className = 'font-bold';
+                        nameSpan.style.color = '#1a73e8';
+                    }
+                    node.className = 'mb-1 cursor-pointer hover:bg-blue-50 p-2 rounded bg-blue-50 tree-node';
+                } else {
+                    if (radio) {
+                        radio.className = 'inline-block w-4 h-4 rounded-full border-2 flex-shrink-0 border-gray-300';
+                        radio.innerHTML = '';
+                    }
+                    if (nameSpan) {
+                        nameSpan.className = '';
+                        nameSpan.style.color = '#333';
+                    }
+                    node.className = 'mb-1 cursor-pointer hover:bg-blue-50 p-2 rounded tree-node';
+                }
+            });
+            
+            console.log('已选择知识点:', knowledgeId, knowledgeName);
         }
 
         // 开始学习
         function startLearning() {
-            var knowledgeId = document.getElementById('knowledgeSelect').value;
-            if (!knowledgeId) {
-                alert('请先选择知识点');
+            if (!requireLogin()) {
                 return;
             }
+            
+            var knowledgeId = selectedKnowledgeId || document.getElementById('selectedKnowledgeId').value;
+            if (!knowledgeId) {
+                alert('请先选择知识点（仅叶节点可选）');
+                return;
+            }
+
+            // 更新按钮状态
+            var startBtn = document.getElementById('startLearningBtn');
+            if (!startBtn) return;
+            var originalText = startBtn.textContent;
+            startBtn.disabled = true;
+            startBtn.textContent = '加载中...';
 
             fetch('/api/v1/learning/start?userId=' + userId, {
                 method: 'POST',
@@ -252,17 +762,25 @@
                     var questions = data.data;
                     if (!questions || questions.length === 0) {
                         alert('该知识点下暂无题目');
+                        startBtn.disabled = false;
+                        startBtn.textContent = originalText;
                         return;
                     }
                     
                     // 显示题目列表
                     displayQuestionsList(questions);
+                    startBtn.disabled = false;
+                    startBtn.textContent = originalText;
                 } else {
                     alert(data.message || '获取题目失败');
+                    startBtn.disabled = false;
+                    startBtn.textContent = originalText;
                 }
             })
             .catch(function(error) {
                 alert(error.message || '获取题目失败');
+                startBtn.disabled = false;
+                startBtn.textContent = originalText;
             });
         }
 
@@ -294,30 +812,75 @@
                 return;
             }
             
-            questions.forEach(function(question, index) {
+            // 定义不同颜色的卡片背景色数组（浅色背景，透明度适中）
+            var cardBackgroundColors = [
+                'rgba(59, 130, 246, 0.1)',   // 浅蓝色
+                'rgba(16, 185, 129, 0.1)',   // 浅绿色
+                'rgba(245, 158, 11, 0.1)',   // 浅橙色
+                'rgba(239, 68, 68, 0.1)',    // 浅红色
+                'rgba(139, 92, 246, 0.1)',   // 浅紫色
+                'rgba(236, 72, 153, 0.1)',   // 浅粉色
+                'rgba(6, 182, 212, 0.1)',    // 浅青色
+                'rgba(132, 204, 22, 0.1)'    // 浅黄绿色
+            ];
+            
+            questions.forEach(function(questionWithScore, index) {
+                // 处理新的数据结构：questionWithScore.question 和 questionWithScore.lastScore
+                var question = questionWithScore.question || questionWithScore; // 兼容旧格式
+                
                 if (!question || !question.id || !question.questionText) {
                     console.warn('题目数据不完整:', question);
                     return;
                 }
                 
+                // 获取最近一次得分（默认为0）
+                var score = 0;
+                if (questionWithScore.lastScore !== undefined && questionWithScore.lastScore !== null) {
+                    score = parseFloat(questionWithScore.lastScore) || 0;
+                }
+                
+                // 选择卡片背景色（循环使用）
+                var backgroundColor = cardBackgroundColors[index % cardBackgroundColors.length];
+                
                 // 创建题目卡片
                 var questionCard = document.createElement('div');
-                questionCard.className = 'border border-gray-300 rounded-lg p-6 mb-6';
+                questionCard.className = 'border rounded-lg p-6 mb-6';
+                questionCard.style.backgroundColor = backgroundColor;
+                questionCard.style.borderColor = '#e0e0e0';
+                questionCard.style.borderWidth = '1px';
+                questionCard.style.borderRadius = '12px';
                 questionCard.id = 'question-card-' + question.id;
+                
+                // 得分显示样式
+                var scoreColor = '#666';
+                if (score >= 80) {
+                    scoreColor = '#10b981'; // 绿色
+                } else if (score >= 60) {
+                    scoreColor = '#3b82f6'; // 蓝色
+                } else if (score >= 40) {
+                    scoreColor = '#f59e0b'; // 橙色
+                } else if (score > 0) {
+                    scoreColor = '#ef4444'; // 红色
+                }
                 
                 questionCard.innerHTML = 
                     '<div class="mb-4">' +
-                        '<div class="font-semibold text-lg mb-2 text-blue-600">题目 ' + (index + 1) + '</div>' +
-                        '<div class="bg-gray-100 p-4 rounded mb-4">' +
-                            '<p class="text-gray-800">' + escapeHtml(question.questionText) + '</p>' +
+                        '<div class="flex items-center justify-between mb-2">' +
+                            '<div class="font-semibold text-lg" style="color: #1a73e8;">题目 ' + (index + 1) + '</div>' +
+                            '<div class="text-sm font-bold" style="color: ' + scoreColor + ';">' +
+                                '最近得分: <span style="font-size: 1.1em;">' + score.toFixed(1) + '</span> 分' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="bg-white p-4 rounded mb-4 border" style="border-radius: 8px; border-color: #e0e0e0;">' +
+                            '<p style="color: #333; line-height: 1.6;">' + escapeHtml(question.questionText) + '</p>' +
                         '</div>' +
                     '</div>' +
                     '<div class="mb-4">' +
-                        '<label class="block text-gray-700 text-sm font-bold mb-2">你的答案</label>' +
-                        '<textarea id="answer-' + question.id + '" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" ' +
-                              'rows="4" placeholder="请输入你的答案..."></textarea>' +
+                        '<label class="block text-sm font-bold mb-2" style="color: #333;">你的答案</label>' +
+                        '<textarea id="answer-' + question.id + '" class="shadow border rounded w-full py-2 px-3 leading-tight focus:outline-none focus:shadow-outline" ' +
+                              'rows="4" placeholder="请输入你的答案..." style="border-radius: 8px; color: #333; line-height: 1.6;"></textarea>' +
                     '</div>' +
-                    '<button onclick="submitAnswerForQuestion(\'' + question.id + '\')" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">' +
+                    '<button onclick="submitAnswerForQuestion(\'' + question.id + '\')" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" style="border-radius: 8px;">' +
                         '提交答案' +
                     '</button>' +
                     '<div id="evaluation-' + question.id + '" class="mt-4" style="display: none;"></div>';
@@ -338,6 +901,10 @@
 
         // 提交答案（针对特定题目）
         function submitAnswerForQuestion(questionId) {
+            if (!requireLogin()) {
+                return;
+            }
+            
             var answerTextEl = document.getElementById('answer-' + questionId);
             if (!answerTextEl) {
                 alert('找不到答案输入框');
@@ -420,7 +987,7 @@
             if (result.analysis) {
                 html += '<div class="mb-4">' +
                     '<h4 class="text-lg font-semibold mb-2">详细分析</h4>' +
-                    '<div class="bg-gray-100 p-4 rounded whitespace-pre-wrap text-sm">' + escapeHtml(result.analysis) + '</div>' +
+                    '<div class="bg-white p-4 rounded border whitespace-pre-wrap text-sm" style="border-color: #e0e0e0;">' + escapeHtml(result.analysis) + '</div>' +
                 '</div>';
             }
 

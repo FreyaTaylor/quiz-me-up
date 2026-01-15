@@ -21,6 +21,17 @@ public interface UserMasteryMapper {
                                              @Param("knowledgeId") String knowledgeId);
 
     /**
+     * 根据用户ID和知识点ID查询掌握度（加锁，用于并发更新）
+     * 使用 SELECT FOR UPDATE 锁定记录，防止并发更新时的丢失更新问题
+     *
+     * @param userId      用户ID
+     * @param knowledgeId 知识点ID
+     * @return 用户掌握度信息
+     */
+    UserMastery selectByUserIdAndKnowledgeIdForUpdate(@Param("userId") Long userId,
+                                                      @Param("knowledgeId") String knowledgeId);
+
+    /**
      * 插入用户掌握度记录
      *
      * @param mastery 用户掌握度信息

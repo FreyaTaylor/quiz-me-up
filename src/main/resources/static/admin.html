@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理后台 - Quiz Me Up</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 顶部导航栏 -->
+    <nav class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- 左侧：页面标题和导航 -->
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-xl font-bold text-gray-800">Quiz Me Up</h1>
+                    <div class="flex space-x-2">
+                        <a href="admin.html" class="px-3 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-700">管理</a>
+                    </div>
+                </div>
+                
+                <!-- 右侧：登录状态 -->
+                <div class="flex items-center space-x-4">
+                    <span id="userInfo" class="text-sm text-gray-600" style="display: none;"></span>
+                    <button id="loginBtn" onclick="window.location.href='login.html'" class="px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white text-sm font-medium rounded-md focus:outline-none focus:shadow-outline">
+                        登录
+                    </button>
+                    <button id="logoutBtn" onclick="handleLogout()" class="px-4 py-2 bg-gray-500 hover:bg-gray-700 text-white text-sm font-medium rounded-md focus:outline-none focus:shadow-outline" style="display: none;">
+                        登出
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+
+    <div class="max-w-4xl mx-auto mt-10 p-6">
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h1 class="text-3xl font-bold mb-6">管理后台</h1>
+            
+            <!-- 权限提示 -->
+            <div id="permissionWarning" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg" style="display: none;">
+                <p class="text-red-800 font-semibold">您没有管理员权限，无法访问此页面。</p>
+            </div>
+            
+            <!-- 知识点初始化区域 -->
+            <div id="adminContent" class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <h2 class="text-lg font-semibold mb-3 text-gray-800">知识点初始化</h2>
+                <form id="initForm" onsubmit="handleInitKnowledge(event)" class="flex gap-3 items-end">
+                    <div class="flex-1">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="knowledgeRootInput">知识树根节点</label>
+                        <input id="knowledgeRootInput" type="text" 
+                               class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                               placeholder="例如: Java, Python, Spring" required>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="countInput">节点数量</label>
+                        <input id="countInput" type="number" min="1" 
+                               class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                               placeholder="建议值: 10-50" value="20" required>
+                    </div>
+                    <button type="submit" 
+                            class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-6 rounded focus:outline-none focus:shadow-outline whitespace-nowrap">
+                        初始化知识点
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        var userId = null;
+        var username = null;
+        var userRole = null;
+
+        // 页面加载时检查登录状态和权限
+        window.onload = function() {
+            checkLoginStatus();
+        };
+
+        // 统一的登录检查函数
+        function requireLogin() {
+            if (!userId) {
+                window.location.href = 'login.html';
+                return false;
+            }
+            return true;
+        }
+
+        // 检查管理员权限
+        function requireAdmin() {
+            if (!requireLogin()) {
+                return false;
+            }
+            if (userRole !== 'ADMIN') {
+                alert('您没有管理员权限');
+                return false;
+            }
+            return true;
+        }
+
+        // 检查登录状态
+        function checkLoginStatus() {
+            userId = sessionStorage.getItem('userId');
+            username = sessionStorage.getItem('username');
+            userRole = sessionStorage.getItem('userRole');
+            
+            if (!userId) {
+                // 未登录，重定向到登录页面
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            // 已登录，检查管理员权限
+            if (userRole !== 'ADMIN') {
+                // 不是管理员，重定向到登录页面
+                alert('您没有管理员权限');
+                sessionStorage.clear();
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            // 是管理员，显示内容
+            updateLoginUI(true);
+            document.getElementById('permissionWarning').style.display = 'none';
+            document.getElementById('adminContent').style.display = 'block';
+        }
+
+        // 更新登录UI
+        function updateLoginUI(isLoggedIn) {
+            var loginBtn = document.getElementById('loginBtn');
+            var logoutBtn = document.getElementById('logoutBtn');
+            var userInfo = document.getElementById('userInfo');
+
+            if (isLoggedIn) {
+                loginBtn.style.display = 'none';
+                logoutBtn.style.display = 'block';
+                userInfo.style.display = 'block';
+                userInfo.textContent = '用户: ' + (username || 'User ' + userId);
+            } else {
+                loginBtn.style.display = 'block';
+                logoutBtn.style.display = 'none';
+                userInfo.style.display = 'none';
+            }
+        }
+
+
+        // 登出处理
+        function handleLogout() {
+            if (confirm('确定要登出吗？')) {
+                sessionStorage.removeItem('userId');
+                sessionStorage.removeItem('username');
+                sessionStorage.removeItem('userRole');
+                // 重定向到登录页面
+                window.location.href = 'login.html';
+            }
+        }
+
+        // 处理知识点初始化
+        function handleInitKnowledge(event) {
+            event.preventDefault();
+            
+            if (!requireAdmin()) {
+                return;
+            }
+            
+            var knowledgeRoot = document.getElementById('knowledgeRootInput').value.trim();
+            var count = parseInt(document.getElementById('countInput').value);
+
+            if (!knowledgeRoot) {
+                alert('请输入知识树根节点名称');
+                return;
+            }
+
+            if (!count || count <= 0) {
+                alert('节点数量必须大于 0');
+                return;
+            }
+
+            // 显示加载状态
+            var submitBtn = event.target.querySelector('button[type="submit"]');
+            var originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = '初始化中...';
+
+            fetch('/api/v1/knowledge/init?userId=' + userId, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'userId': userId
+                },
+                body: JSON.stringify({
+                    knowledgeRoot: knowledgeRoot,
+                    count: count
+                })
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.code === 200) {
+                    alert('知识点初始化成功！');
+                    // 刷新页面以显示新的知识树
+                    location.reload();
+                } else {
+                    alert(data.message || '初始化失败');
+                }
+            })
+            .catch(function(error) {
+                alert(error.message || '初始化失败，请重试');
+            })
+            .finally(function() {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            });
+        }
+    </script>
+</body>
+</html>

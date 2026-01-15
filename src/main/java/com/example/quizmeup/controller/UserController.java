@@ -41,6 +41,7 @@ public class UserController {
         LoginResponse response = new LoginResponse();
         response.setUserId(user.getId());
         response.setUsername(user.getUsername());
+        response.setRole(user.getRole());
 
         return Result.success(response);
     }

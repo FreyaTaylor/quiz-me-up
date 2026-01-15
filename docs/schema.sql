@@ -2,8 +2,10 @@ CREATE TABLE users (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     username VARCHAR(64) NOT NULL UNIQUE,
     password VARCHAR(64) NOT NULL,
+    role VARCHAR(16) DEFAULT NULL COMMENT '用户角色，ADMIN为管理员，NULL为普通用户',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_username (username)
+    INDEX idx_username (username),
+    INDEX idx_role (role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE lc_knowledge (

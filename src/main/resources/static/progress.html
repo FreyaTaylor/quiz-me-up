@@ -17,6 +17,7 @@
                     <div class="flex space-x-2">
                         <a href="learning.html" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">学习</a>
                         <a href="progress.html" class="px-3 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-700">进度</a>
+                        <a id="adminLink" href="admin.html" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100" style="display: none;">管理</a>
                     </div>
                 </div>
                 
@@ -63,32 +64,12 @@
     </div>
 
     <div class="max-w-4xl mx-auto mt-10 p-6">
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h1 class="text-3xl font-bold mb-6">学习进度</h1>
-            
-            <!-- 自动加载进度（如果已登录） -->
-            <div id="autoLoadSection" style="display: none;">
-                <p class="text-gray-600 mb-4">已登录，自动加载您的学习进度...</p>
-            </div>
-            
-            <!-- 手动输入用户ID（未登录时显示） -->
-            <div id="manualLoadSection">
-                <div class="mb-6">
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="userIdInput">用户ID</label>
-                    <div class="flex">
-                        <input id="userIdInput" type="number" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
-                               placeholder="请输入用户ID" value="">
-                        <button onclick="loadProgress()" class="ml-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                            加载进度
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- 自动加载进度（如果已登录） -->
+        <div id="autoLoadSection" style="display: none;"></div>
 
         <!-- 进度树 -->
         <div id="progressTree" class="bg-white rounded-lg shadow-md p-6">
-            <p class="text-gray-500 text-center">请先登录或输入用户ID并点击"加载进度"</p>
+            <p class="text-gray-500 text-center">请先登录以查看学习进度</p>
         </div>
     </div>
 
@@ -102,21 +83,42 @@
             checkLoginStatus();
         };
 
+        // 统一的登录检查函数
+        function requireLogin() {
+            if (!userId) {
+                alert('请先登录');
+                showLoginModal();
+                return false;
+            }
+            return true;
+        }
+
         // 检查登录状态
         function checkLoginStatus() {
             userId = sessionStorage.getItem('userId');
             username = sessionStorage.getItem('username');
+            var userRole = sessionStorage.getItem('userRole');
             
             if (userId) {
                 updateLoginUI(true);
-                document.getElementById('userIdInput').value = userId;
+                // 根据角色显示/隐藏管理页面链接
+                var adminLink = document.getElementById('adminLink');
+                if (adminLink) {
+                    adminLink.style.display = (userRole === 'ADMIN') ? 'block' : 'none';
+                }
                 document.getElementById('autoLoadSection').style.display = 'block';
-                document.getElementById('manualLoadSection').style.display = 'none';
                 loadProgress();
             } else {
                 updateLoginUI(false);
+                var adminLink = document.getElementById('adminLink');
+                if (adminLink) {
+                    adminLink.style.display = 'none';
+                }
                 document.getElementById('autoLoadSection').style.display = 'none';
-                document.getElementById('manualLoadSection').style.display = 'block';
+                // 显示登录弹框
+                showLoginModal();
+                // 显示提示信息
+                document.getElementById('progressTree').innerHTML = '<p class="text-yellow-800 text-center p-4 bg-yellow-50 border border-yellow-200 rounded">请先登录以查看学习进度</p>';
             }
         }
 
@@ -184,14 +186,19 @@
                 if (data.code === 200 && data.data) {
                     userId = data.data.userId.toString();
                     username = data.data.username || usernameInput;
+                    var userRole = data.data.role || null;
                     sessionStorage.setItem('userId', userId);
                     sessionStorage.setItem('username', username);
+                    sessionStorage.setItem('userRole', userRole);
                     
                     hideLoginModal();
                     updateLoginUI(true);
-                    document.getElementById('userIdInput').value = userId;
+                    // 根据角色显示/隐藏管理页面链接
+                    var adminLink = document.getElementById('adminLink');
+                    if (adminLink) {
+                        adminLink.style.display = (userRole === 'ADMIN') ? 'block' : 'none';
+                    }
                     document.getElementById('autoLoadSection').style.display = 'block';
-                    document.getElementById('manualLoadSection').style.display = 'none';
                     loadProgress();
                 } else {
                     alert(data.message || '登录失败');
@@ -205,34 +212,26 @@
         // 登出处理
         function handleLogout() {
             if (confirm('确定要登出吗？')) {
-                sessionStorage.removeItem('userId');
-                sessionStorage.removeItem('username');
-                userId = null;
-                username = null;
-                updateLoginUI(false);
-                document.getElementById('autoLoadSection').style.display = 'none';
-                document.getElementById('manualLoadSection').style.display = 'block';
-                document.getElementById('userIdInput').value = '';
-                document.getElementById('progressTree').innerHTML = '<p class="text-gray-500 text-center">请先登录或输入用户ID并点击"加载进度"</p>';
+                sessionStorage.clear();
+                // 重定向到登录页面
+                window.location.href = 'login.html';
             }
         }
 
         // 加载进度树
         function loadProgress() {
-            var currentUserId = userId || document.getElementById('userIdInput').value;
-            if (!currentUserId) {
-                alert('请先登录或输入用户ID');
+            if (!requireLogin()) {
                 return;
             }
 
-            fetch('/api/v1/progress/tree?userId=' + currentUserId, {
+            fetch('/api/v1/progress/tree?userId=' + userId, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'userId': currentUserId
+                    'userId': userId
                 },
                 body: JSON.stringify({
-                    userId: parseInt(currentUserId)
+                    userId: parseInt(userId)
                 })
             })
             .then(function(response) {
@@ -270,43 +269,80 @@
             var proficiency = node.proficiency ? parseFloat(node.proficiency) : 0;
             var proficiencyPercent = proficiency.toFixed(2) + '%';
             
-            var details = document.createElement('details');
-            details.className = 'mb-2';
+            // 判断是否为叶子节点
+            var isLeaf = node.isLeaf === true || !node.children || node.children.length === 0;
             
-            var summary = document.createElement('summary');
-            summary.className = 'cursor-pointer font-semibold p-2 hover:bg-gray-100 rounded';
-            
-            // 节点标题和掌握度
-            var titleDiv = document.createElement('div');
-            titleDiv.className = 'flex items-center justify-between';
-            
-            var nameSpan = document.createElement('span');
-            nameSpan.textContent = node.name || node.id;
-            nameSpan.className = 'mr-4';
-            
-            var proficiencySpan = document.createElement('span');
-            proficiencySpan.textContent = proficiencyPercent;
-            proficiencySpan.className = 'text-blue-600 font-bold mr-4';
-            
-            titleDiv.appendChild(nameSpan);
-            titleDiv.appendChild(proficiencySpan);
-            summary.appendChild(titleDiv);
-            
-            // 进度条
-            var progressBarContainer = document.createElement('div');
-            progressBarContainer.className = 'w-full bg-gray-200 rounded-full h-2.5 mt-2';
-            
-            var progressBar = document.createElement('div');
-            progressBar.className = 'bg-green-500 h-2.5 rounded-full';
-            progressBar.style.width = proficiency + '%';
-            
-            progressBarContainer.appendChild(progressBar);
-            summary.appendChild(progressBarContainer);
-            
-            details.appendChild(summary);
-            
-            // 子节点
-            if (node.children && node.children.length > 0) {
+            if (isLeaf) {
+                // 叶子节点：不使用 details/summary，直接使用 div，不显示小三角
+                var leafDiv = document.createElement('div');
+                leafDiv.className = 'mb-2 p-2';
+                
+                // 节点标题和掌握度
+                var titleDiv = document.createElement('div');
+                titleDiv.className = 'flex items-center justify-between';
+                
+                var nameSpan = document.createElement('span');
+                nameSpan.textContent = node.name || node.id;
+                nameSpan.className = 'mr-4 font-semibold';
+                
+                var proficiencySpan = document.createElement('span');
+                proficiencySpan.textContent = proficiencyPercent;
+                proficiencySpan.className = 'text-blue-600 font-bold mr-4';
+                
+                titleDiv.appendChild(nameSpan);
+                titleDiv.appendChild(proficiencySpan);
+                leafDiv.appendChild(titleDiv);
+                
+                // 进度条
+                var progressBarContainer = document.createElement('div');
+                progressBarContainer.className = 'w-full bg-gray-200 rounded-full h-2.5 mt-2';
+                
+                var progressBar = document.createElement('div');
+                progressBar.className = 'bg-green-500 h-2.5 rounded-full';
+                progressBar.style.width = proficiency + '%';
+                
+                progressBarContainer.appendChild(progressBar);
+                leafDiv.appendChild(progressBarContainer);
+                
+                return leafDiv;
+            } else {
+                // 非叶子节点：使用 details/summary，可以展开/折叠
+                var details = document.createElement('details');
+                details.className = 'mb-2';
+                
+                var summary = document.createElement('summary');
+                summary.className = 'cursor-pointer font-semibold p-2 hover:bg-gray-100 rounded';
+                
+                // 节点标题和掌握度
+                var titleDiv = document.createElement('div');
+                titleDiv.className = 'flex items-center justify-between';
+                
+                var nameSpan = document.createElement('span');
+                nameSpan.textContent = node.name || node.id;
+                nameSpan.className = 'mr-4';
+                
+                var proficiencySpan = document.createElement('span');
+                proficiencySpan.textContent = proficiencyPercent;
+                proficiencySpan.className = 'text-blue-600 font-bold mr-4';
+                
+                titleDiv.appendChild(nameSpan);
+                titleDiv.appendChild(proficiencySpan);
+                summary.appendChild(titleDiv);
+                
+                // 进度条
+                var progressBarContainer = document.createElement('div');
+                progressBarContainer.className = 'w-full bg-gray-200 rounded-full h-2.5 mt-2';
+                
+                var progressBar = document.createElement('div');
+                progressBar.className = 'bg-green-500 h-2.5 rounded-full';
+                progressBar.style.width = proficiency + '%';
+                
+                progressBarContainer.appendChild(progressBar);
+                summary.appendChild(progressBarContainer);
+                
+                details.appendChild(summary);
+                
+                // 子节点
                 var childrenDiv = document.createElement('div');
                 childrenDiv.className = 'ml-4 mt-2';
                 
@@ -316,10 +352,11 @@
                 });
                 
                 details.appendChild(childrenDiv);
+                
+                return details;
             }
-            
-            return details;
         }
+
     </script>
 </body>
 </html>

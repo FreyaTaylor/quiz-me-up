@@ -13,10 +13,25 @@
           AND knowledge_id = #{knowledgeId}
     </select>
 
-    <!-- 插入用户掌握度记录 -->
+    <!-- 根据用户ID和知识点ID查询掌握度（加锁，用于并发更新） -->
+    <select id="selectByUserIdAndKnowledgeIdForUpdate" resultType="com.example.quizmeup.entity.UserMastery">
+        SELECT user_id,
+               knowledge_id,
+               proficiency,
+               updated_at
+        FROM lc_user_mastery
+        WHERE user_id = #{userId}
+          AND knowledge_id = #{knowledgeId}
+        FOR UPDATE
+    </select>
+
+    <!-- 插入用户掌握度记录（如果已存在则更新） -->
     <insert id="insert" parameterType="com.example.quizmeup.entity.UserMastery">
         INSERT INTO lc_user_mastery (user_id, knowledge_id, proficiency, updated_at)
         VALUES (#{userId}, #{knowledgeId}, #{proficiency}, #{updatedAt})
+        ON DUPLICATE KEY UPDATE
+            proficiency = #{proficiency},
+            updated_at = #{updatedAt}
     </insert>
 
     <!-- 更新用户掌握度 -->

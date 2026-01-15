@@ -5,9 +5,10 @@
 -- ============================================
 
 -- 1. 插入用户数据（明文密码）
-INSERT INTO users (username, password) VALUES
-('alice', '123456'),
-('bob', 'password');
+INSERT INTO users (username, password, role) VALUES
+('alice', '123456', NULL),
+('bob', 'password', NULL),
+('admin', 'admin123', 'ADMIN');
 
 -- 2. 构建 Java 并发知识树
 -- 根节点：Java
@@ -72,3 +73,43 @@ INSERT INTO lc_prompt_template (code, content, description) VALUES
 表达清晰：XX分
 评语：...',
 '答案评分');
+
+-- 知识树生成模板
+INSERT INTO lc_prompt_template (code, content, description) VALUES
+('KNOWLEDGE_TREE_GEN',
+'你是一位资深的技术专家。请根据以下要求生成一个结构化的知识树。
+
+知识树根节点：{knowledgeRoot}
+建议节点数量：{count}
+
+要求：
+1. 生成一个层次化的知识树结构，包含根节点、中间节点和叶节点
+2. 每个节点需要包含：id（唯一标识，使用点号分隔，如 "java.concurrent.threadpool"）、name（节点名称）、importance（重要性，1-5的整数）、children（子节点数组）
+3. 叶节点（没有子节点的节点）的 children 应为空数组 []
+4. 知识树应该覆盖该技术领域的核心知识点，层次清晰，逻辑合理
+5. 节点数量尽量接近建议值，但可以适当调整以保证知识树的完整性
+
+请严格按照以下 JSON 格式输出，只输出 JSON，不要包含其他文字说明：
+{
+  "data": {
+    "id": "根节点id",
+    "name": "根节点名称",
+    "importance": "5",
+    "children": [
+      {
+        "id": "子节点id",
+        "name": "子节点名称",
+        "importance": "4",
+        "children": [
+          {
+            "id": "叶节点id",
+            "name": "叶节点名称",
+            "importance": "5",
+            "children": []
+          }
+        ]
+      }
+    ]
+  }
+}',
+'生成知识树');

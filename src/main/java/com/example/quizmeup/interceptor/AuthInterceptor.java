@@ -27,11 +27,12 @@ public class AuthInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         String path = request.getRequestURI();
 
-        // 排除 /api/auth/** 路径
+        // 排除 /api/auth/** 路径（仅登录接口公开）
         if (path.startsWith("/api/auth/")) {
             return true;
         }
 
+        // 所有其他 /api/** 接口都需要登录验证
         // 获取 user_id（优先从请求参数获取，其次从 Header 获取）
         String userIdStr = request.getParameter("userId");
         if (userIdStr == null || userIdStr.isEmpty()) {
