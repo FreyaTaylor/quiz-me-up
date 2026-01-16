@@ -1,11 +1,12 @@
 package com.example.quizmeup.service;
 
+import com.example.quizmeup.common.Constants;
 import com.example.quizmeup.dto.KnowledgeProgressNode;
 import com.example.quizmeup.entity.Knowledge;
 import com.example.quizmeup.entity.UserMastery;
-import com.example.quizmeup.mapper.KnowledgeMapper;
-import com.example.quizmeup.mapper.UserMasteryMapper;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.example.quizmeup.repository.KnowledgeRepository;
+import com.example.quizmeup.repository.UserMasteryRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -20,13 +21,11 @@ import java.util.stream.Collectors;
  * 学习进度服务类
  */
 @Service
+@RequiredArgsConstructor
 public class ProgressService {
 
-    @Autowired
-    private KnowledgeMapper knowledgeMapper;
-
-    @Autowired
-    private UserMasteryMapper userMasteryMapper;
+    private final KnowledgeRepository knowledgeRepository;
+    private final UserMasteryRepository userMasteryRepository;
 
     /**
      * 获取用户的知识树进度
@@ -36,7 +35,7 @@ public class ProgressService {
      */
     public List<KnowledgeProgressNode> getProgressTree(Long userId) {
         // 1. 查询所有知识点
-        List<Knowledge> allKnowledge = knowledgeMapper.selectList(null);
+        List<Knowledge> allKnowledge = knowledgeRepository.findAll();
 
         // 2. 查询用户的所有掌握度记录
         Map<String, BigDecimal> masteryMap = getUserMasteryMap(userId);
@@ -50,13 +49,13 @@ public class ProgressService {
         for (Knowledge knowledge : allKnowledge) {
             String parentId = knowledge.getParentId();
             if (parentId == null) {
-                parentId = "ROOT"; // 根节点使用特殊标识
+                parentId = Constants.ROOT_NODE_ID; // 根节点使用特殊标识
             }
             childrenMap.computeIfAbsent(parentId, k -> new ArrayList<>()).add(knowledge);
         }
 
         // 5. 构建树结构并计算 proficiency
-        List<Knowledge> rootNodes = childrenMap.getOrDefault("ROOT", new ArrayList<>());
+        List<Knowledge> rootNodes = childrenMap.getOrDefault(Constants.ROOT_NODE_ID, new ArrayList<>());
         List<KnowledgeProgressNode> result = new ArrayList<>();
 
         for (Knowledge rootNode : rootNodes) {
@@ -78,12 +77,12 @@ public class ProgressService {
         Map<String, BigDecimal> masteryMap = new HashMap<>();
 
         // 查询所有知识点
-        List<Knowledge> allKnowledge = knowledgeMapper.selectList(null);
+        List<Knowledge> allKnowledge = knowledgeRepository.findAll();
 
         // 只查询叶节点的掌握度（非叶节点通过计算得出）
         for (Knowledge knowledge : allKnowledge) {
             if (Boolean.TRUE.equals(knowledge.getIsLeaf())) {
-                UserMastery mastery = userMasteryMapper.selectByUserIdAndKnowledgeId(userId, knowledge.getId());
+                UserMastery mastery = userMasteryRepository.findByUserIdAndKnowledgeId(userId, knowledge.getId());
                 if (mastery != null && mastery.getProficiency() != null) {
                     masteryMap.put(knowledge.getId(), mastery.getProficiency());
                 } else {
@@ -114,8 +113,8 @@ public class ProgressService {
         node.setName(knowledge.getName());
         node.setDescription(knowledge.getDescription());
         node.setIsLeaf(knowledge.getIsLeaf());
-        node.setImportance(knowledge.getImportance() != null ? knowledge.getImportance() : 3);
-        node.setLevel(knowledge.getLevel() != null ? knowledge.getLevel() : 1);
+        node.setImportance(knowledge.getImportance() != null ? knowledge.getImportance() : Constants.DEFAULT_IMPORTANCE);
+        node.setLevel(knowledge.getLevel() != null ? knowledge.getLevel() : Constants.DEFAULT_LEVEL);
 
         // 获取子节点
         List<Knowledge> children = childrenMap.getOrDefault(knowledge.getId(), new ArrayList<>());
@@ -159,7 +158,7 @@ public class ProgressService {
 
         for (KnowledgeProgressNode child : childNodes) {
             BigDecimal proficiency = child.getProficiency() != null ? child.getProficiency() : BigDecimal.ZERO;
-            int importance = child.getImportance() != null ? child.getImportance() : 3;
+            int importance = child.getImportance() != null ? child.getImportance() : Constants.DEFAULT_IMPORTANCE;
 
             BigDecimal weight = BigDecimal.valueOf(importance);
             BigDecimal weightedProficiency = proficiency.multiply(weight);

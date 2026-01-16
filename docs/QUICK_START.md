@@ -58,45 +58,72 @@ java -jar target/quizmeup-0.0.1-SNAPSHOT.jar
 
 应用启动后，默认运行在 **http://localhost:8080**
 
+#### 🔐 登录页面
+**访问地址**: http://localhost:8080/login.html
+
+**功能**:
+- 用户登录（测试账号：alice/123456 或 bob/password）
+- 登录成功后跳转到学习页面
+
 #### 📚 学习页面
 **访问地址**: http://localhost:8080/learning.html
 
 **功能**:
-- 用户登录（测试账号：alice/123456 或 bob/password）
-- 选择知识点
-- 获取题目
+- 选择知识点（必须是叶节点）
+- 获取题目列表（包含最近一次得分）
 - 提交答案
-- 查看 AI 评分结果
+- 查看 AI 评分结果（包含得分、评价、分析和参考答案）
 
 #### 📊 进度页面
 **访问地址**: http://localhost:8080/progress.html
 
 **功能**:
 - 输入用户ID
-- 查看知识树结构
-- 查看每个知识点的掌握度
+- 查看完整知识树结构
+- 查看每个知识点的掌握度（叶节点显示实际掌握度，非叶节点显示加权平均）
 - 展开/折叠节点
+
+#### ⚙️ 管理页面
+**访问地址**: http://localhost:8080/admin.html
+
+**功能**:
+- 初始化知识树（调用 LLM 生成知识树结构）
+- 输入根节点名称（如 "Java", "Python"）
+- 设置建议的节点数量
+- 系统会自动生成并保存知识树到数据库
 
 ## 🧪 测试流程
 
-1. **访问学习页面**
+### 方式一：完整流程测试
+
+1. **初始化知识树（可选）**
    ```
-   http://localhost:8080/learning.html
+   http://localhost:8080/admin.html
    ```
+   - 输入根节点名称：`Java`
+   - 输入节点数量：`20`
+   - 点击"初始化知识树"
+   - 等待 LLM 生成知识树结构
 
 2. **登录**
+   ```
+   http://localhost:8080/login.html
+   ```
    - 用户名: `alice`
    - 密码: `123456`
+   - 登录成功后自动跳转到学习页面
 
 3. **开始学习**
-   - 选择知识点（如：线程池）
+   - 在学习页面选择知识点（必须是叶节点，如：线程池）
    - 点击"开始学习"
-   - 系统会生成或获取题目
+   - 系统会生成或获取该知识点下的所有题目
+   - 显示每个题目的最近一次得分
 
 4. **提交答案**
+   - 选择一个题目
    - 在文本框中输入答案
    - 点击"提交答案"
-   - 查看 AI 评分结果
+   - 查看 AI 评分结果（包含得分、评价、分析和参考答案）
 
 5. **查看进度**
    ```
@@ -104,7 +131,42 @@ java -jar target/quizmeup-0.0.1-SNAPSHOT.jar
    ```
    - 输入用户ID: `1`
    - 点击"加载进度"
-   - 查看知识树和掌握度
+   - 查看完整知识树和每个节点的掌握度
+   - 叶节点显示实际掌握度，非叶节点显示加权平均掌握度
+
+### 方式二：API 测试
+
+使用 curl 或 Postman 测试 API 接口：
+
+```bash
+# 1. 登录
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"alice","password":"123456"}'
+
+# 2. 获取根节点
+curl -X GET http://localhost:8080/api/v1/knowledge/root-nodes
+
+# 3. 根据根节点获取知识树
+curl -X POST http://localhost:8080/api/v1/knowledge/leaf-nodes-by-root \
+  -H "Content-Type: application/json" \
+  -d '{"rootId":"java","userId":1}'
+
+# 4. 开始学习（需要 userId 参数）
+curl -X POST "http://localhost:8080/api/v1/learning/start?userId=1" \
+  -H "Content-Type: application/json" \
+  -d '{"userId":1,"knowledgeId":"java.concurrent.threadpool"}'
+
+# 5. 提交答案
+curl -X POST "http://localhost:8080/api/v1/learning/submit?userId=1" \
+  -H "Content-Type: application/json" \
+  -d '{"userId":1,"questionId":"java.concurrent.threadpool_Q1","answerText":"线程池是..."}'
+
+# 6. 获取学习进度
+curl -X POST http://localhost:8080/api/v1/progress/tree \
+  -H "Content-Type: application/json" \
+  -d '{"userId":1}'
+```
 
 ## 📋 测试数据
 

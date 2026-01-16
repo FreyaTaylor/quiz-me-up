@@ -10,9 +10,11 @@ Quiz Me Up 是一个本地部署的 AI 面试模拟平台，帮助用户通过 A
 - **框架**: Spring Boot 3.5.9
 - **ORM**: MyBatis-Plus 3.5.7
 - **数据库**: MySQL 8.0
-- **JSON 处理**: FastJSON2 2.0.43
-- **LLM**: DeepSeek API（兼容 OpenAI 格式）
+- **JSON 处理**: Jackson (Spring Boot 内置)
+- **LLM 框架**: LangChain4j 0.34.0
+- **LLM API**: DeepSeek API（兼容 OpenAI 格式）
 - **Java 版本**: 17
+- **构建工具**: Maven
 
 ### 前端
 - **技术**: 原生 HTML/JavaScript
@@ -25,15 +27,15 @@ Quiz Me Up 是一个本地部署的 AI 面试模拟平台，帮助用户通过 A
 quiz-me-up/
 ├── src/main/java/com/example/quizmeup/
 │   ├── ai/                    # AI 相关接口和实现
-│   │   ├── LlmClient.java
-│   │   ├── PromptService.java
-│   │   └── impl/
-│   │       ├── LlmClientImpl.java
-│   │       └── PromptServiceImpl.java
+│   │   ├── LlmClient.java           # 默认 LLM 客户端（用于出题、评分）
+│   │   ├── ReasonerLlmClient.java   # 推理模型客户端（用于知识树生成）
+│   │   └── PromptService.java        # Prompt 模板服务
 │   ├── common/                # 通用类
-│   │   └── Result.java        # 统一响应封装
+│   │   ├── FeResponse.java    # 统一响应封装
+│   │   └── AiResponse.java    # AI 响应封装
 │   ├── config/                # 配置类
-│   │   └── WebMvcConfig.java  # Web MVC 配置
+│   │   ├── WebMvcConfig.java  # Web MVC 配置（拦截器注册）
+│   │   └── LlmConfig.java     # LLM 模型配置
 │   ├── controller/            # 控制器层
 │   │   ├── UserController.java
 │   │   ├── LearningController.java
@@ -58,23 +60,31 @@ quiz-me-up/
 │   │   └── PromptTemplate.java
 │   ├── interceptor/           # 拦截器
 │   │   └── AuthInterceptor.java
-│   ├── mapper/                # Mapper 接口
+│   ├── mapper/                # Mapper 接口（MyBatis-Plus）
 │   │   ├── UserMapper.java
 │   │   ├── KnowledgeMapper.java
 │   │   ├── QuestionMapper.java
 │   │   ├── QuestionRecordMapper.java
 │   │   ├── UserMasteryMapper.java
 │   │   └── PromptTemplateMapper.java
+│   ├── repository/            # Repository 层（封装数据访问）
+│   │   ├── UserRepository.java
+│   │   ├── KnowledgeRepository.java
+│   │   ├── QuestionRepository.java
+│   │   ├── QuestionRecordRepository.java
+│   │   ├── UserMasteryRepository.java
+│   │   └── PromptTemplateRepository.java
 │   └── service/               # 服务层
-│       ├── UserService.java
-│       ├── LearningService.java
-│       ├── ProgressService.java
-│       └── StudyService.java
+│       ├── UserService.java          # 用户服务
+│       ├── LearningService.java      # 学习服务（出题、评分）
+│       ├── ProgressService.java      # 进度服务（掌握度计算）
+│       └── StudyService.java         # 学习管理服务（知识树管理）
 ├── src/main/resources/
 │   ├── static/                # 静态资源
+│   │   ├── login.html         # 登录页面
 │   │   ├── learning.html      # 学习页面
-│   │   └── progress.html      # 进度页面
-│   ├── mapper/                # MyBatis XML 映射文件
+│   │   ├── progress.html      # 进度页面
+│   │   └── admin.html         # 管理页面（知识树初始化）
 │   └── application.properties # 配置文件
 └── docs/
     ├── schema.sql             # 数据库表结构
@@ -86,33 +96,45 @@ quiz-me-up/
 ### 核心表结构
 
 1. **users** - 用户表
-   - `id`: 用户ID（主键）
+   - `id`: 用户ID（主键，自增）
    - `username`: 用户名（唯一）
-   - `password`: 密码（明文）
+   - `password`: 密码（明文存储）
+   - `role`: 用户角色（ADMIN 为管理员，NULL 为普通用户）
+   - `created_at`: 创建时间
 
 2. **lc_knowledge** - 知识点表
    - `id`: 知识点ID（主键，如 "java.concurrent.threadpool"）
-   - `parent_id`: 父节点ID
+   - `parent_id`: 父节点ID（根节点为 NULL）
    - `name`: 知识点名称
-   - `is_leaf`: 是否为叶节点
-   - `importance`: 重要性（1-5）
+   - `description`: 知识点描述
+   - `level`: 层级（从 1 开始）
+   - `importance`: 重要性（1-5，默认 3）
+   - `is_leaf`: 是否为叶节点（只有叶节点可以关联题目）
+   - `created_at`: 创建时间
+   - `updated_at`: 更新时间
 
 3. **lc_questions** - 题目表
-   - `id`: 题目ID（主键）
-   - `knowledge_id`: 关联知识点ID
+   - `id`: 题目ID（主键，格式：`{knowledgeId}_Q{index}`）
+   - `knowledge_id`: 关联知识点ID（外键，必须是叶节点）
    - `question_text`: 题目内容
    - `model_answer`: 标准答案
+   - `importance`: 重要性（1-5，默认 3）
+   - `difficulty`: 难度（1-5，默认 3）
+   - `created_at`: 创建时间
+   - `updated_at`: 更新时间
 
 4. **lc_question_record** - 答题记录表
-   - `id`: 记录ID（主键）
-   - `user_id`: 用户ID
-   - `question_id`: 题目ID
-   - `score`: 得分（0.0-100.0）
+   - `id`: 记录ID（主键，自增）
+   - `user_id`: 用户ID（外键）
+   - `question_id`: 题目ID（外键）
+   - `score`: 得分（0.0-100.0，保留 1 位小数）
+   - `submitted_at`: 提交时间
 
 5. **lc_user_mastery** - 用户掌握度表
-   - `user_id`: 用户ID（复合主键）
-   - `knowledge_id`: 知识点ID（复合主键）
-   - `proficiency`: 掌握度（0.00-100.00）
+   - `user_id`: 用户ID（复合主键，外键）
+   - `knowledge_id`: 知识点ID（复合主键，外键）
+   - `proficiency`: 掌握度（0.00-100.00，保留 2 位小数）
+   - `updated_at`: 更新时间
 
 6. **lc_prompt_template** - Prompt 模板表
    - `id`: 模板ID（主键）
@@ -147,10 +169,10 @@ quiz-me-up/
 }
 ```
 
-### 2. 学习相关
+### 2. 知识点管理
 
-#### 获取叶节点知识点
-- **URL**: `GET /api/v1/knowledge/leaf-nodes`
+#### 获取所有根节点
+- **URL**: `GET /api/v1/knowledge/root-nodes`
 - **响应**:
 ```json
 {
@@ -158,13 +180,66 @@ quiz-me-up/
   "message": "success",
   "data": [
     {
-      "id": "java.concurrent.threadpool",
-      "name": "线程池",
-      "isLeaf": true
+      "id": "java",
+      "name": "Java",
+      "parentId": null,
+      "isLeaf": false
     }
   ]
 }
 ```
+
+#### 根据根节点获取知识树
+- **URL**: `POST /api/v1/knowledge/leaf-nodes-by-root`
+- **请求体**:
+```json
+{
+  "rootId": "java",
+  "userId": 1
+}
+```
+- **响应**:
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "id": "java",
+    "name": "Java",
+    "isLeaf": false,
+    "proficiency": null,
+    "children": [
+      {
+        "id": "java.concurrent",
+        "name": "Java 并发",
+        "isLeaf": false,
+        "proficiency": null,
+        "children": [...]
+      }
+    ]
+  }
+}
+```
+
+#### 初始化知识树
+- **URL**: `POST /api/v1/knowledge/init`
+- **请求体**:
+```json
+{
+  "knowledgeRoot": "Java",
+  "count": 20
+}
+```
+- **响应**:
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": "知识树初始化成功"
+}
+```
+
+### 3. 学习相关
 
 #### 开始学习
 - **URL**: `POST /api/v1/learning/start`
@@ -180,10 +255,18 @@ quiz-me-up/
 {
   "code": 200,
   "message": "success",
-  "data": {
-    "questionId": "java.concurrent.threadpool_q_1234567890",
-    "questionText": "请解释 Java 中线程池的工作原理？"
-  }
+  "data": [
+    {
+      "questionId": "java.concurrent.threadpool_Q1",
+      "questionText": "请解释 Java 中线程池的工作原理？",
+      "lastScore": 85.5
+    },
+    {
+      "questionId": "java.concurrent.threadpool_Q2",
+      "questionText": "线程池有哪些核心参数？",
+      "lastScore": 0.0
+    }
+  ]
 }
 ```
 
@@ -211,7 +294,7 @@ quiz-me-up/
 }
 ```
 
-### 3. 进度相关
+### 4. 进度相关
 
 #### 获取学习进度树
 - **URL**: `POST /api/v1/progress/tree`
@@ -287,25 +370,39 @@ quiz-me-up/
 
 ## 📊 核心业务逻辑
 
-### 1. 题目生成流程
+### 1. 知识树初始化流程
+1. 管理员调用初始化接口，传入根节点名称和节点数量
+2. 使用 `KNOWLEDGE_TREE_GEN` Prompt 模板生成请求
+3. 调用 `ReasonerLlmClient`（推理模型）生成知识树结构
+4. 解析 LLM 返回的 JSON，递归保存到数据库
+5. 自动判断叶节点（无子节点的节点为叶节点）
+
+### 2. 题目生成流程
 1. 用户选择知识点（必须是叶节点）
 2. 查询该知识点下是否已有题目
-3. 如果没有，调用 LLM 生成新题目
-4. 保存题目到数据库
-5. 返回题目给用户
+3. 如果没有，调用 LLM 生成新题目（使用 `INTERVIEW_Q_GEN` 模板）
+4. 保存题目到数据库（题目ID格式：`{knowledgeId}_Q{index}`）
+5. 查询用户在该知识点下的最近一次得分
+6. 返回题目列表（包含最近得分）
 
-### 2. 答案评分流程
+### 3. 答案评分流程
 1. 用户提交答案
 2. 从数据库获取题目和标准答案
-3. 使用 Prompt 模板构造评分请求
-4. 调用 LLM 进行评分
-5. 解析 LLM 响应，提取评分结果
-6. 保存答题记录
-7. 更新用户掌握度
+3. 使用 `ANSWER_EVALUATION` Prompt 模板构造评分请求
+4. 调用 `LlmClient`（默认模型）进行评分
+5. 解析 LLM 响应，提取评分结果（score, conclusion, analysis, referenceAnswer）
+6. 保存答题记录到 `lc_question_record`
+7. 更新用户掌握度（使用悲观锁防止并发问题）
 
-### 3. 掌握度计算
+### 4. 掌握度计算
 - **叶节点**: 直接从 `lc_user_mastery.proficiency` 查询
+  - 计算公式：该知识点下所有题目的平均分 = Σ(题目得分) / 题目数量
 - **非叶节点**: 加权平均 = Σ(child.proficiency × child.importance) / Σ(child.importance)
+  - 递归计算，从叶节点向上聚合
+
+### 5. 并发控制
+- 使用数据库悲观锁（`SELECT FOR UPDATE`）防止掌握度更新时的并发问题
+- 在 `updateUserMastery` 方法中，先锁定记录，再重新查询所有答题记录，确保数据一致性
 
 ## ⚙️ 配置说明
 
@@ -321,7 +418,7 @@ spring.datasource.password=root
 llm.api.url=https://api.deepseek.com/v1
 llm.api.key=your-deepseek-api-key
 llm.api.model=deepseek-chat
-llm.api.timeout=30
+llm.tree.api.reasonerModel=deepseek-reasoner
 ```
 
 > **注意**: 如果不配置 `llm.api.key`，系统会使用模拟响应，适合开发测试。
@@ -346,11 +443,35 @@ llm.api.timeout=30
 
 ## 📝 开发规范
 
-1. **分层架构**: Controller → Service → Mapper
-2. **禁止硬编码 Prompt**: 必须通过 `PromptService.render()` 获取模板
-3. **统一响应格式**: 使用 `Result<T>` 封装响应
-4. **事务控制**: 涉及数据库写操作使用 `@Transactional`
-5. **异常处理**: 业务异常使用 `IllegalArgumentException`，系统异常统一处理
+1. **分层架构**: Controller → Service → Repository → Mapper
+   - Controller 层：只负责参数校验、调用 Service、封装响应，不做业务逻辑
+   - Service 层：业务逻辑处理，事务控制
+   - Repository 层：封装所有数据访问逻辑，使用 LambdaQueryWrapper
+   - Mapper 层：MyBatis-Plus 接口，不直接暴露给 Service
+
+2. **依赖注入**: 统一使用 `@RequiredArgsConstructor` + `final` 字段，禁止使用 `@Autowired`
+
+3. **禁止硬编码 Prompt**: 必须通过 `PromptService.render()` 获取模板，禁止在代码中硬编码 Prompt 字符串
+
+4. **统一响应格式**: 使用 `FeResponse<T>` 封装响应，所有接口返回统一格式
+
+5. **事务控制**: 涉及数据库写操作使用 `@Transactional`，确保数据一致性
+
+6. **异常处理**: 
+   - 业务异常使用 `IllegalArgumentException`
+   - 系统异常统一处理，Controller 层捕获并返回错误响应
+   - 禁止在 Controller 层抛出未处理的异常
+
+7. **数据访问规范**:
+   - 禁止在 Service 层直接使用 Mapper
+   - 必须通过 Repository 层访问数据
+   - 使用 LambdaQueryWrapper 构建查询条件，禁止使用字符串字段名
+
+8. **代码风格**:
+   - 使用 Lombok 简化代码（@Data, @RequiredArgsConstructor）
+   - 方法必须有 JavaDoc 注释
+   - 魔法数字提取为常量
+   - 统一使用 Java 17 语法特性
 
 ## 🔧 常见问题
 
@@ -378,4 +499,4 @@ A: 检查请求是否携带 `userId` 参数或 Header
 
 ---
 
-**最后更新**: 2024年
+**最后更新**: 2024年12月

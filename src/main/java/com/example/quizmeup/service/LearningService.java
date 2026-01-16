@@ -1,23 +1,23 @@
 package com.example.quizmeup.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.quizmeup.ai.LlmClient;
 import com.example.quizmeup.ai.PromptService;
 import com.example.quizmeup.common.AiResponse;
+import com.example.quizmeup.common.Constants;
 import com.example.quizmeup.dto.QuestionWithScore;
 import com.example.quizmeup.dto.SubmitAnswerResponse;
 import com.example.quizmeup.entity.Knowledge;
 import com.example.quizmeup.entity.Question;
 import com.example.quizmeup.entity.QuestionRecord;
 import com.example.quizmeup.entity.UserMastery;
-import com.example.quizmeup.mapper.KnowledgeMapper;
-import com.example.quizmeup.mapper.QuestionMapper;
-import com.example.quizmeup.mapper.QuestionRecordMapper;
-import com.example.quizmeup.mapper.UserMasteryMapper;
+import com.example.quizmeup.repository.KnowledgeRepository;
+import com.example.quizmeup.repository.QuestionRecordRepository;
+import com.example.quizmeup.repository.QuestionRepository;
+import com.example.quizmeup.repository.UserMasteryRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,28 +33,16 @@ import java.util.Map;
  * 学习服务类
  */
 @Service
+@RequiredArgsConstructor
 public class LearningService {
 
-    @Autowired
-    private KnowledgeMapper knowledgeMapper;
-
-    @Autowired
-    private QuestionMapper questionMapper;
-
-    @Autowired
-    private PromptService promptService;
-
-    @Autowired
-    private LlmClient llmClient;
-
-    @Autowired
-    private QuestionRecordMapper questionRecordMapper;
-
-    @Autowired
-    private UserMasteryMapper userMasteryMapper;
-
-    @Autowired
-    private ObjectMapper objectMapper;
+    private final KnowledgeRepository knowledgeRepository;
+    private final QuestionRepository questionRepository;
+    private final QuestionRecordRepository questionRecordRepository;
+    private final UserMasteryRepository userMasteryRepository;
+    private final PromptService promptService;
+    private final LlmClient llmClient;
+    private final ObjectMapper objectMapper;
 
     /**
      * 开始学习：根据知识点ID获取或生成题目
@@ -67,7 +55,7 @@ public class LearningService {
     @Transactional
     public List<QuestionWithScore> startLearning(Long userId, String knowledgeId) {
         // 1. 校验知识点是否存在且为叶节点
-        Knowledge knowledge = knowledgeMapper.selectById(knowledgeId);
+        Knowledge knowledge = knowledgeRepository.findById(knowledgeId);
         if (knowledge == null) {
             throw new IllegalArgumentException("知识点不存在");
         }
@@ -76,16 +64,12 @@ public class LearningService {
         }
 
         // 2. 查询该知识点下的题目
-        List<Question> questions = questionMapper.selectList(
-                new LambdaQueryWrapper<Question>()
-                        .eq(Question::getKnowledgeId, knowledgeId)
-                        .orderByDesc(Question::getCreatedAt)
-        );
+        List<Question> questions = questionRepository.findByKnowledgeId(knowledgeId);
 
         // 3. 如果没有题目，则生成新题目
         if (questions.isEmpty()) {
             questions = generateQuestion(knowledge);
-            questionMapper.insert(questions);
+            questionRepository.saveBatch(questions);
         }
 
         // 4. 查询每个题目的最近一次得分
@@ -94,7 +78,7 @@ public class LearningService {
             questionIds.add(question.getId());
         }
 
-        List<QuestionRecord> latestRecords = questionRecordMapper.selectLatestScoresByUserIdAndQuestionIds(userId, questionIds);
+        List<QuestionRecord> latestRecords = questionRecordRepository.findLatestScoresByUserIdAndQuestionIds(userId, questionIds);
         
         // 构建题目ID到得分的映射
         Map<String, BigDecimal> scoreMap = new HashMap<>();
@@ -143,17 +127,17 @@ public class LearningService {
         int index = 1;
         for (Question question : questions) {
             // 设置题目基本信息
-            question.setId(knowledge.getId()+"_Q"+index);
+            question.setId(knowledge.getId() + Constants.QUESTION_ID_SEPARATOR + index);
             question.setKnowledgeId(knowledge.getId());
             question.setCreatedAt(LocalDateTime.now());
             question.setUpdatedAt(LocalDateTime.now());
 
             // 设置默认值
             if (question.getDifficulty() == null) {
-                question.setDifficulty(3);
+                question.setDifficulty(Constants.DEFAULT_DIFFICULTY);
             }
             if (question.getImportance() == null) {
-                question.setImportance(3);
+                question.setImportance(Constants.DEFAULT_IMPORTANCE);
             }
             index++;
         }
@@ -178,7 +162,7 @@ public class LearningService {
             if (current.getParentId() == null || current.getParentId().isEmpty()) {
                 break;
             }
-            current = knowledgeMapper.selectById(current.getParentId());
+            current = knowledgeRepository.findById(current.getParentId());
         }
         
         // 用 "-" 拼接所有节点名称
@@ -197,7 +181,7 @@ public class LearningService {
     @Transactional
     public SubmitAnswerResponse submitAnswer(Long userId, String questionId, String answerText) throws JsonProcessingException {
         // 1. 从 lc_questions 获取题目和标准答案
-        Question question = questionMapper.selectById(questionId);
+        Question question = questionRepository.findById(questionId);
         if (question == null) {
             throw new IllegalArgumentException("题目不存在");
         }
@@ -222,7 +206,7 @@ public class LearningService {
         record.setQuestionId(questionId);
         record.setScore(BigDecimal.valueOf(response.getScore()).setScale(1, RoundingMode.HALF_UP));
         record.setSubmittedAt(LocalDateTime.now());
-        questionRecordMapper.insert(record);
+        questionRecordRepository.save(record);
 
         // 6. 更新 lc_user_mastery.proficiency = 该知识点下所有题目的平均分
         updateUserMastery(userId, question.getKnowledgeId());
@@ -248,16 +232,16 @@ public class LearningService {
      * @param userId      用户ID
      * @param knowledgeId 知识点ID
      */
+    @Transactional
     private void updateUserMastery(Long userId, String knowledgeId) {
         // 步骤1：使用 SELECT FOR UPDATE 锁定掌握度记录（如果存在）
         // 这样可以防止其他并发事务同时更新同一条记录
         // 注意：即使记录不存在，FOR UPDATE 也会在插入时生效（通过后续的 INSERT ... ON DUPLICATE KEY UPDATE）
-        @SuppressWarnings("unused")
-        UserMastery existingMastery = userMasteryMapper.selectByUserIdAndKnowledgeIdForUpdate(userId, knowledgeId);
+        userMasteryRepository.findByUserIdAndKnowledgeIdForUpdate(userId, knowledgeId);
         
         // 步骤2：在锁定期间，重新查询该知识点下所有题目的最新答题记录
         // 这样可以确保获取到所有已提交的答题记录（包括当前事务刚插入的记录）
-        List<QuestionRecord> records = questionRecordMapper.selectByUserIdAndKnowledgeId(userId, knowledgeId);
+        List<QuestionRecord> records = questionRecordRepository.findLatestScoresByUserIdAndQuestionIds(userId, List.of(knowledgeId));
 
         if (records.isEmpty()) {
             // 没有答题记录，不更新掌握度
@@ -265,11 +249,7 @@ public class LearningService {
         }
 
         // 步骤3：查询该知识点下的所有题目数量
-        List<Question> questions = questionMapper.selectList(
-                new LambdaQueryWrapper<Question>()
-                        .eq(Question::getKnowledgeId, knowledgeId)
-                        .orderByDesc(Question::getCreatedAt)
-        );
+        List<Question> questions = questionRepository.findByKnowledgeId(knowledgeId);
         int questionCount = questions.size();
 
         if (questionCount == 0) {
@@ -294,6 +274,6 @@ public class LearningService {
         mastery.setKnowledgeId(knowledgeId);
         mastery.setProficiency(proficiency);
         mastery.setUpdatedAt(LocalDateTime.now());
-        userMasteryMapper.insert(mastery);
+        userMasteryRepository.save(mastery);
     }
 }

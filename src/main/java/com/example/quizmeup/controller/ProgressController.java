@@ -1,12 +1,10 @@
 package com.example.quizmeup.controller;
 
-import com.example.quizmeup.common.Result;
+import com.example.quizmeup.common.FeResponse;
 import com.example.quizmeup.dto.KnowledgeProgressNode;
 import com.example.quizmeup.dto.ProgressTreeRequest;
 import com.example.quizmeup.service.ProgressService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,12 +17,10 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/v1/progress")
+@RequiredArgsConstructor
 public class ProgressController {
 
-    private static final Logger logger = LoggerFactory.getLogger(ProgressController.class);
-
-    @Autowired
-    private ProgressService progressService;
+    private final ProgressService progressService;
 
     /**
      * 获取学习进度树接口
@@ -34,10 +30,8 @@ public class ProgressController {
      * @return 知识树根节点列表
      */
     @PostMapping("/tree")
-    public Result<List<KnowledgeProgressNode>> getProgressTree(@RequestBody ProgressTreeRequest request) {
-
+    public FeResponse<List<KnowledgeProgressNode>> getProgressTree(@RequestBody ProgressTreeRequest request) {
         List<KnowledgeProgressNode> tree = progressService.getProgressTree(request.getUserId());
-        return Result.success(tree);
-
+        return FeResponse.success(tree);
     }
 }

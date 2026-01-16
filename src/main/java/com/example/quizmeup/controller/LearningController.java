@@ -1,15 +1,12 @@
 package com.example.quizmeup.controller;
 
-import com.example.quizmeup.common.Result;
+import com.example.quizmeup.common.FeResponse;
 import com.example.quizmeup.dto.QuestionWithScore;
 import com.example.quizmeup.dto.StartLearningRequest;
 import com.example.quizmeup.dto.SubmitAnswerRequest;
 import com.example.quizmeup.dto.SubmitAnswerResponse;
 import com.example.quizmeup.service.LearningService;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,12 +19,10 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/v1/learning")
+@RequiredArgsConstructor
 public class LearningController {
 
-    private static final Logger logger = LoggerFactory.getLogger(LearningController.class);
-
-    @Autowired
-    private LearningService learningService;
+    private final LearningService learningService;
 
     /**
      * 开始学习接口
@@ -37,10 +32,18 @@ public class LearningController {
      * @return 题目信息（包含最近一次得分）
      */
     @PostMapping("/start")
-    public Result<List<QuestionWithScore>> startLearning(@RequestBody StartLearningRequest request) {
-        List<QuestionWithScore> questions = learningService.startLearning(request.getUserId(), request.getKnowledgeId());
-        return Result.success(questions);
-
+    public FeResponse<List<QuestionWithScore>> startLearning(@RequestBody StartLearningRequest request) {
+        try {
+            if (request.getUserId() == null || request.getKnowledgeId() == null) {
+                return FeResponse.error("用户ID和知识点ID不能为空");
+            }
+            List<QuestionWithScore> questions = learningService.startLearning(request.getUserId(), request.getKnowledgeId());
+            return FeResponse.success(questions);
+        } catch (IllegalArgumentException e) {
+            return FeResponse.error(e.getMessage());
+        } catch (Exception e) {
+            return FeResponse.error("系统错误：" + e.getMessage());
+        }
     }
 
     /**
@@ -51,13 +54,20 @@ public class LearningController {
      * @return 评分结果
      */
     @PostMapping("/submit")
-    public Result<SubmitAnswerResponse> submitAnswer(@RequestBody SubmitAnswerRequest request) throws JsonProcessingException {
-        // 调用服务层提交答案并评分
-        SubmitAnswerResponse response = learningService.submitAnswer(
-                request.getUserId(),
-                request.getQuestionId(),
-                request.getAnswerText());
-        return Result.success(response);
-
+    public FeResponse<SubmitAnswerResponse> submitAnswer(@RequestBody SubmitAnswerRequest request) {
+        try {
+            if (request.getUserId() == null || request.getQuestionId() == null || request.getAnswerText() == null) {
+                return FeResponse.error("用户ID、题目ID和答案不能为空");
+            }
+            SubmitAnswerResponse response = learningService.submitAnswer(
+                    request.getUserId(),
+                    request.getQuestionId(),
+                    request.getAnswerText());
+            return FeResponse.success(response);
+        } catch (IllegalArgumentException e) {
+            return FeResponse.error(e.getMessage());
+        } catch (Exception e) {
+            return FeResponse.error("系统错误：" + e.getMessage());
+        }
     }
 }

@@ -7,22 +7,22 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 /**
- * LLM 客户端实现类
- * 使用 HTTP 调用 OpenAI API（或其他兼容的 LLM API）
+ * 专门用于知识树初始化的 LLM 客户端
+ * 使用独立的模型配置，可与默认模型不同
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class LlmClient {
+public class ReasonerLlmClient {
 
     /**
-     * 默认模型，用于出题、评分等学习流程
+     * 知识树初始化专用模型
      */
-    private final @Qualifier("chatModel") ChatLanguageModel chatModel;
+    private final @Qualifier("reasonerModel") ChatLanguageModel reasonerModel;
 
     public String call(String prompt) {
         log.info(prompt);
-        String resp = chatModel.generate(prompt);
+        String resp = reasonerModel.generate(prompt);
         log.info(resp);
         return resp;
     }

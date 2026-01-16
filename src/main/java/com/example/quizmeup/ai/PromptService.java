@@ -1,9 +1,8 @@
 package com.example.quizmeup.ai;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.quizmeup.entity.PromptTemplate;
-import com.example.quizmeup.mapper.PromptTemplateMapper;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.example.quizmeup.repository.PromptTemplateRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -12,16 +11,14 @@ import java.util.Map;
  * Prompt 模板服务实现类
  */
 @Service
+@RequiredArgsConstructor
 public class PromptService {
 
-    @Autowired
-    private PromptTemplateMapper promptTemplateMapper;
+    private final PromptTemplateRepository promptTemplateRepository;
     
     public String render(String templateCode, Map<String, Object> params) {
         // 1. 从数据库获取模板
-        LambdaQueryWrapper<PromptTemplate> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(PromptTemplate::getCode, templateCode);
-        PromptTemplate template = promptTemplateMapper.selectOne(wrapper);
+        PromptTemplate template = promptTemplateRepository.findByCode(templateCode);
 
         if (template == null) {
             throw new RuntimeException("Prompt 模板不存在: " + templateCode);

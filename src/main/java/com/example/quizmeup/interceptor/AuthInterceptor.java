@@ -1,12 +1,12 @@
 package com.example.quizmeup.interceptor;
 
-import com.example.quizmeup.common.Result;
+import com.example.quizmeup.common.FeResponse;
 import com.example.quizmeup.entity.User;
 import com.example.quizmeup.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -15,13 +15,11 @@ import org.springframework.web.servlet.HandlerInterceptor;
  * 拦截 /api/** 路径（排除 /api/auth/**），验证 user_id 是否有效
  */
 @Component
+@RequiredArgsConstructor
 public class AuthInterceptor implements HandlerInterceptor {
 
-    @Autowired
-    private UserService userService;
-
-    @Autowired
-    private ObjectMapper objectMapper;
+    private final UserService userService;
+    private final ObjectMapper objectMapper;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -40,7 +38,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
 
         if (userIdStr == null || userIdStr.isEmpty()) {
-            writeErrorResponse(response, Result.error("Missing user_id parameter"));
+            writeErrorResponse(response, FeResponse.error("Missing user_id parameter"));
             return false;
         }
 
@@ -49,14 +47,14 @@ public class AuthInterceptor implements HandlerInterceptor {
             User user = userService.getUserById(userId);
 
             if (user == null) {
-                writeErrorResponse(response, Result.error("Invalid user"));
+                writeErrorResponse(response, FeResponse.error("Invalid user"));
                 return false;
             }
 
             // 验证通过，继续执行
             return true;
         } catch (NumberFormatException e) {
-            writeErrorResponse(response, Result.error("Invalid user_id format"));
+            writeErrorResponse(response, FeResponse.error("Invalid user_id format"));
             return false;
         }
     }
@@ -64,7 +62,7 @@ public class AuthInterceptor implements HandlerInterceptor {
     /**
      * 写入错误响应
      */
-    private void writeErrorResponse(HttpServletResponse response, Result<?> result) throws Exception {
+    private void writeErrorResponse(HttpServletResponse response, FeResponse<?> result) throws Exception {
         response.setStatus(HttpServletResponse.SC_OK);
         response.setContentType("application/json;charset=UTF-8");
         response.getWriter().write(objectMapper.writeValueAsString(result));

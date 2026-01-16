@@ -453,7 +453,7 @@
         // 全局变量：选中的知识点ID
         var selectedKnowledgeId = null;
 
-        // 根据根节点ID加载知识树
+        // 根据根节点ID加载知识树（只加载该根节点下的叶节点）
         function loadLeafNodesByRoot(rootId) {
             if (!rootId) {
                 return;
@@ -465,10 +465,17 @@
             
             console.log('加载知识树，rootId:', rootId);
             
-            fetch('/api/v1/knowledge/leaf-nodes?userId=' + userId, {
+            // 调用按根节点筛选的接口，返回该根节点下的树形结构
+            fetch('/api/v1/knowledge/leaf-nodes-by-root?userId=' + userId, {
+                method: 'POST',
                 headers: {
+                    'Content-Type': 'application/json',
                     'userId': userId
-                }
+                },
+                body: JSON.stringify({
+                    rootId: rootId,
+                    userId: parseInt(userId)
+                })
             })
             .then(function(response) {
                 return response.json();
@@ -476,16 +483,8 @@
             .then(function(data) {
                 console.log('知识树响应:', data);
                 if (data.code === 200 && data.data) {
-                    // 找到对应的根节点树
-                    var rootTree = data.data.find(function(node) {
-                        return node.id === rootId;
-                    });
-                    
-                    if (rootTree) {
-                        displayKnowledgeTree(rootTree);
-                    } else {
-                        document.getElementById('knowledgeTree').innerHTML = '<p class="text-red-500">未找到对应的知识树</p>';
-                    }
+                    var rootTree = data.data;
+                    displayKnowledgeTree(rootTree);
                 } else {
                     alert(data.message || '加载知识树失败');
                 }
@@ -665,8 +664,14 @@
                 parentElement.appendChild(nodeDiv);
             }
             
-            // 从根节点开始渲染
-            renderTreeNode(rootNode, container, 0);
+            // 从第二级（根节点的children）开始渲染
+            if (rootNode && rootNode.children && rootNode.children.length > 0) {
+                rootNode.children.forEach(function(child) {
+                    renderTreeNode(child, container, 0);
+                });
+            } else {
+                container.innerHTML = '<p style="color: #666;">该知识领域下暂无子节点</p>';
+            }
         }
 
         // 选择知识点（只有叶节点）
